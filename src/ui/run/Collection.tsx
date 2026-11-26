@@ -6,13 +6,13 @@ import './run.css'
 
 export function Collection() {
   const [save] = useSave()
-  const stages: Stage[] = worlds.flatMap(w => w.world?.stages ?? []).sort((a, b) => a.order - b.order)
+  const stages: Stage[] = worlds.flatMap(w => [...(w.world?.stages ?? [])].sort((a, b) => a.order - b.order))
   const all = stages.flatMap(s => s.cards)
   const got = all.filter(c => save.knowledge.includes(c.id)).length
   return (
     <section className="collection">
       <h1 className="title">האוסף</h1>
-      <p className="counter mono" data-testid="collected">נאספו {got}/{all.length}</p>
+      <p className="run-counter mono" data-testid="collected">נאספו {got}/{all.length}</p>
       {stages.map(s => (
         <div key={s.id} className="coll-stage" style={{ ['--stage' as string]: `var(--g${((s.order - 1) % 6) + 1})` }}>
           <h2 className="sub"><span className="mono accent">{s.order}</span> {s.title}</h2>

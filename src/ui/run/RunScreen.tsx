@@ -37,16 +37,16 @@ function useCountUp(target: number): number {
   return shown
 }
 
-function Hud({ run }: { run: RunState }) {
+function Hud({ run, shown: at }: { run: RunState; shown: number }) {
   const shown = useCountUp(run.score)
   return (
-    <div className="hud" data-testid="hud">
+    <div className="run-hud" data-testid="hud">
       <span className="lives" data-testid="lives" aria-label={`${run.lives} חיים`}>
         {Array.from({ length: MAX_LIVES }, (_, i) => <span key={i} className={`heart ${i < run.lives ? 'on' : 'off'}`} aria-hidden>{i < run.lives ? '♥' : '♡'}</span>)}
       </span>
       <span className="mult mono" dir="ltr" data-testid="multiplier" key={run.multiplier}>{`×${run.multiplier}`}</span>
       <span className="score mono" data-testid="score" data-score={run.score}>{shown}</span>
-      <span className="progress muted" data-testid="progress">קלף {Math.min(run.index + 1, run.deck.length)}/{run.deck.length}</span>
+      <span className="progress muted" data-testid="progress">קלף {Math.min(at + 1, run.deck.length)}/{run.deck.length}</span>
     </div>
   )
 }
@@ -56,11 +56,14 @@ function Run({ stageId, worldId, deckCards, seed, onAgain }: {
 }) {
   const [save, update] = useSave()
   const [run, setRun] = useState(() => startRun(deckCards, mulberry32(seed)))
+  const [shown, setShown] = useState(0)
+  const [revealed, setRevealed] = useState(false)
+  const answered = useRef(-1)
   const prevBest = useRef(save.bestRun[stageId] ?? 0)
   const recorded = useRef(false)
   // display order of each card's reasons, shuffled per card so the right one is not always first
   const orders = useMemo(() => run.deck.map((c, i) => {
-    const n = c.kind === 'claim' ? c.reasons.length : 0
+    const n = c.kind === 'claim' ? c.reasons.length : 6
     const o = Array.from({ length: n }, (_, k) => k)
     const r = mulberry32(seed + i + 1)
     for (let k = n - 1; k > 0; k--) { const j = Math.floor(r() * (k + 1));[o[k], o[j]] = [o[j], o[k]] }
@@ -73,8 +76,19 @@ function Run({ stageId, worldId, deckCards, seed, onAgain }: {
     update(d => ({ ...d, bestRun: { ...d.bestRun, [stageId]: Math.max(d.bestRun[stageId] ?? 0, run.score) } }))
   }, [run.done, run.score, stageId, update])
 
+  // answer() applies at reveal so the HUD reacts at once; "next" only moves on. One answer per card.
+  const reveal = (ok: boolean) => {
+    if (answered.current === shown) return
+    answered.current = shown
+    const id = run.deck[shown].id
+    if (!ok) update(d => d.knowledge.includes(id) ? d : { ...d, knowledge: [...d.knowledge, id] })
+    setRun(r => answer(r, ok))
+    setRevealed(true)
+  }
+  const next = () => { setRevealed(false); setShown(i => i + 1) }
+
   const stageHref = hrefs.stage(worldId, stageId)
-  if (run.done) {
+  if (run.done && !revealed) {
     const isNew = run.score > prevBest.current
     const cardById = new Map(deckCards.map(c => [c.id, c]))
     return (
@@ -99,14 +113,14 @@ function Run({ stageId, worldId, deckCards, seed, onAgain }: {
     )
   }
 
-  const card = run.deck[run.index]
+  const card = run.deck[shown]
   return (
     <section className="run">
       <a className="back" href={stageHref}>→ לשלב</a>
-      <Hud run={run} />
-      <CardView key={card.id} card={card} order={orders[run.index]}
-        onReveal={ok => { if (!ok) update(d => d.knowledge.includes(card.id) ? d : { ...d, knowledge: [...d.knowledge, card.id] }) }}
-        onNext={ok => setRun(r => answer(r, ok))} />
+      <Hud run={run} shown={shown} />
+      <CardView key={card.id} card={card} order={orders[shown]}
+        onReveal={reveal}
+        onNext={next} />
     </section>
   )
 }

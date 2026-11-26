@@ -15,7 +15,7 @@ test.beforeEach(async ({ page }) => {
   }, JSON.stringify(save))
 })
 
-async function play(page: Page, c: Card, correct: boolean) {
+async function play(page: Page, c: Card, correct: boolean, opts?: { expectMult?: string }) {
   if (c.kind === 'claim') {
     await page.getByTestId(`verdict-${correct ? c.isTrue : !c.isTrue}`).click()
     await page.getByTestId(`opt-${correct ? c.correctReason : (c.correctReason + 1) % c.reasons.length}`).click()
@@ -23,13 +23,14 @@ async function play(page: Page, c: Card, correct: boolean) {
     await page.getByTestId(`opt-${correct ? c.correct : (c.correct + 1) % 6}`).click()
   }
   await expect(page.getByTestId('reveal')).toBeVisible()
+  if (correct && opts?.expectMult) await expect(page.getByTestId('multiplier')).toHaveText(opts.expectMult)
   await page.getByRole('button', { name: 'הבא' }).click()
 }
 
 test('run: correct gives x2, a mistake costs a life and lands in the collection', async ({ page }) => {
   await page.goto('/?seed=1#/run/sw-4-minimize')
   await expect(page.getByTestId('progress')).toContainText(`קלף 1/${deck.length}`)
-  await play(page, deck[0], true)
+  await play(page, deck[0], true, { expectMult: '×2' }) // HUD already shows ×2 before pressing הבא
   await expect(page.getByTestId('multiplier')).toHaveText('×2')
   await expect(page.getByTestId('score')).toHaveAttribute('data-score', '100')
   await play(page, deck[1], false)

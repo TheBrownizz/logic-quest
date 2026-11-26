@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { Card } from '../../content/types'
 import { useSave } from '../save'
 
@@ -9,7 +9,7 @@ export function FlagButton({ id }: { id: string }) {
   const on = save.flagged.includes(id)
   const toggle = () => update(d => ({ ...d, flagged: d.flagged.includes(id) ? d.flagged.filter(x => x !== id) : [...d.flagged, id] }))
   return (
-    <button type="button" className={`flag${on ? ' on' : ''}`} aria-pressed={on} onClick={toggle}>
+    <button type="button" className={`run-flag${on ? ' on' : ''}`} aria-pressed={on} onClick={toggle}>
       {on ? 'סומן ✓' : '⚑ נראה שגוי'}
     </button>
   )
@@ -19,6 +19,7 @@ export function Reveal({ card, correct, examReason }: { card: Card; correct: boo
   return (
     <div className={`reveal ${correct ? 'good' : 'bad'}`} data-testid="reveal" role="status">
       <p className="v-label">{correct ? 'נכון!' : 'לא נכון'}</p>
+      {card.kind === 'claim' && <p className="truth">{card.isTrue ? 'הטענה נכונה' : 'הטענה לא נכונה'}</p>}
       {examReason && (
         <p className="exam"><b>ככה כותבים במבחן:</b> <span dir="auto">{examReason}</span></p>
       )}
@@ -41,7 +42,7 @@ export function CardView({ card, order, onReveal, onNext }: {
   card: Card
   order: number[]
   onReveal: (correct: boolean) => void
-  onNext: (correct: boolean) => void
+  onNext: () => void
 }) {
   const [verdict, setVerdict] = useState<boolean | null>(null)
   const [picked, setPicked] = useState<number | null>(null)
@@ -50,15 +51,17 @@ export function CardView({ card, order, onReveal, onNext }: {
     ? verdict === card.isTrue && picked === card.correctReason
     : picked === card.correct
 
+  const done = useRef(false)
   const pick = (i: number) => {
-    if (revealed) return
+    if (done.current) return
+    done.current = true
     setPicked(i)
     onReveal(card.kind === 'claim' ? verdict === card.isTrue && i === card.correctReason : i === card.correct)
   }
 
   return (
-    <article className="card" data-kind={card.kind}>
-      <div className="card-top"><span className="kind">{card.kind === 'claim' ? 'טענה' : 'שאלה'}</span><FlagButton id={card.id} /></div>
+    <article className="run-card" data-kind={card.kind}>
+      <div className="card-top"><span className="run-kind">{card.kind === 'claim' ? 'טענה' : 'שאלה'}</span><FlagButton id={card.id} /></div>
       <p className="card-text" dir="auto">{card.text}</p>
 
       {card.kind === 'claim' ? (
@@ -66,7 +69,7 @@ export function CardView({ card, order, onReveal, onNext }: {
           <div className="verdicts">
             {([true, false] as const).map(v => (
               <button key={String(v)} type="button" data-testid={`verdict-${v}`} disabled={verdict !== null}
-                className={`big ${v ? 'yes' : 'no'}${verdict === v ? ' chosen' : ''}`} onClick={() => setVerdict(v)}>
+                className={`run-big ${v ? 'yes' : 'no'}${verdict === v ? ' chosen' : ''}`} onClick={() => setVerdict(v)}>
                 {v ? 'נכונה' : 'לא נכונה'}
               </button>
             ))}
@@ -76,7 +79,7 @@ export function CardView({ card, order, onReveal, onNext }: {
               <p className="muted step">למה?</p>
               {order.map(i => (
                 <button key={i} type="button" data-testid={`opt-${i}`} disabled={revealed} onClick={() => pick(i)}
-                  className={`opt${picked === i ? ' chosen' : ''}${revealed && i === card.correctReason ? ' right' : ''}${revealed && picked === i && i !== card.correctReason ? ' wrong' : ''}`}>
+                  className={`run-opt${picked === i ? ' chosen' : ''}${revealed && i === card.correctReason ? ' right' : ''}${revealed && picked === i && i !== card.correctReason ? ' wrong' : ''}`}>
                   <span dir="auto">{card.reasons[i]}</span>
                 </button>
               ))}
@@ -85,11 +88,11 @@ export function CardView({ card, order, onReveal, onNext }: {
         </>
       ) : (
         <div className="reasons" role="group" aria-label="תשובות">
-          {card.options.map((o, i) => (
+          {order.map((i, pos) => (
             <button key={i} type="button" data-testid={`opt-${i}`} disabled={revealed} onClick={() => pick(i)}
-              className={`opt${picked === i ? ' chosen' : ''}${revealed && i === card.correct ? ' right' : ''}${revealed && picked === i && i !== card.correct ? ' wrong' : ''}`}>
-              <span className="letter" aria-hidden>{LETTERS[i]}</span>
-              <span dir="auto">{o}</span>
+              className={`run-opt${picked === i ? ' chosen' : ''}${revealed && i === card.correct ? ' right' : ''}${revealed && picked === i && i !== card.correct ? ' wrong' : ''}`}>
+              <span className="letter" aria-hidden>{LETTERS[pos]}</span>
+              <span dir="auto">{card.options[i]}</span>
             </button>
           ))}
         </div>
@@ -98,7 +101,7 @@ export function CardView({ card, order, onReveal, onNext }: {
       {revealed && (
         <>
           <Reveal card={card} correct={correct} examReason={card.kind === 'claim' ? card.examReason : undefined} />
-          <button type="button" className="btn primary next" onClick={() => onNext(correct)} autoFocus>הבא</button>
+          <button type="button" className="btn primary run-next" onClick={onNext}>הבא</button>
         </>
       )}
     </article>
