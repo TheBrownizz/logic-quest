@@ -21,6 +21,19 @@ describe('LocalProgressStore', () => {
     const s = new LocalProgressStore(fake({ 'logic-quest-save': '{"version":1,"knowledge":["a"]}' })).load()
     expect(s).toEqual({ ...emptySave(), knowledge: ['a'] })
   })
+  it('load failure backs up the raw value once, never overwriting', () => {
+    const st = fake({ 'logic-quest-save': '{oops' })
+    expect(new LocalProgressStore(st).load()).toEqual(emptySave())
+    expect(st.getItem('logic-quest-save-backup')).toBe('{oops')
+    st.setItem('logic-quest-save', '{"version":99}')
+    new LocalProgressStore(st).load()
+    expect(st.getItem('logic-quest-save-backup')).toBe('{oops')
+  })
+  it('no backup for empty or missing save', () => {
+    const st = fake({})
+    new LocalProgressStore(st).load()
+    expect(st.getItem('logic-quest-save-backup')).toBeNull()
+  })
   it('save throwing does not crash', () => {
     expect(() => new LocalProgressStore(fake({}, true)).save(emptySave())).not.toThrow()
   })

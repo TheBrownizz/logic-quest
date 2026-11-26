@@ -18,6 +18,7 @@ export interface ProgressStore {
 }
 
 export const SAVE_KEY = 'logic-quest-save'
+export const BACKUP_KEY = 'logic-quest-save-backup'
 
 export function emptySave(): SaveData {
   return { version: 1, rooms: {}, chips: {}, drafts: {}, knowledge: [], bestRun: {}, flagged: [] }
@@ -64,13 +65,23 @@ export class LocalProgressStore implements ProgressStore {
   }
 
   load(): SaveData {
+    let raw: string | null | undefined
     try {
-      const raw = this.store()?.getItem(SAVE_KEY)
+      raw = this.store()?.getItem(SAVE_KEY)
       if (!raw) return emptySave()
-      return normalize(JSON.parse(raw)) ?? emptySave()
-    } catch {
-      return emptySave()
-    }
+      const d = normalize(JSON.parse(raw))
+      if (d) return d
+    } catch { /* fall through to backup */ }
+    if (raw) this.backup(raw)
+    return emptySave()
+  }
+
+  /** Keeps the unreadable raw save once, so a later save() can't destroy the user's data. */
+  private backup(raw: string): void {
+    try {
+      const st = this.store()
+      if (st && !st.getItem(BACKUP_KEY)) st.setItem(BACKUP_KEY, raw)
+    } catch { /* ignore */ }
   }
 
   save(d: SaveData): void {
