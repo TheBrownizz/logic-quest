@@ -2,11 +2,11 @@ import { useMemo, useState, type FormEvent } from 'react'
 import type { LabPuzzle, Room } from '../../content/types'
 import type { RoomResult } from '../../game/progress'
 import { stars } from '../../game/rules'
-import { arrivalTimes, criticalPath } from '../../logic/circuit'
+import { arrivalTimes, criticalPath, type Node } from '../../logic/circuit'
 import { useSave } from '../save'
 import { Stars } from '../Stars'
 import { CircuitEditor } from './CircuitEditor'
-import { Hints, useSolve } from './roomParts'
+import { Hints, useHelped, useSolve } from './roomParts'
 import { autoLayout, needsLayout } from './labLogic'
 
 type DelayPz = Extract<LabPuzzle, { type: 'delay' }>
@@ -20,13 +20,30 @@ export function DelayPuzzle({ room, puzzle }: { room: Room; puzzle: DelayPz }) {
 
   const [answer, setAnswer] = useState('')
   const [done, setDone] = useState<{ correct: boolean; result?: RoomResult } | null>(null)
-  const [helped, setHelped] = useState(false)
+  const [helped, markHelped] = useHelped(room.id)
   const [hintsShown, setHintsShown] = useState(0)
   const [celebrate, setCelebrate] = useState(0)
 
-  const delays = useMemo(() => Object.fromEntries(circuit.nodes
-    .filter(n => n.kind !== 'IN' && n.kind !== 'OUT')
-    .map(n => [n.id, `${n.delay ?? 0} ns`])), [circuit])
+  /** A gate's own delay; a chip without one gets its inner worst-case arrival. Omitted if unknown. */
+  const delays = useMemo(() => {
+    const of = (n: Node): number | undefined => {
+      if (n.delay !== undefined) return n.delay
+      if (typeof n.kind !== 'object') return 0
+      const chip = save.chips[n.kind.chip]
+      if (!chip) return undefined
+      try {
+        const t = arrivalTimes(chip.circuit, save.chips, [chip.name])
+        return Math.max(0, ...chip.circuit.nodes.filter(o => o.kind === 'OUT').map(o => t[o.id] ?? 0))
+      } catch { return undefined }
+    }
+    const tags: Record<string, string> = {}
+    for (const n of circuit.nodes) {
+      if (n.kind === 'IN' || n.kind === 'OUT') continue
+      const d = of(n)
+      if (d !== undefined) tags[n.id] = `${d} ns`
+    }
+    return tags
+  }, [circuit, save.chips])
 
   const analysis = useMemo(() => {
     if (!done) return null
@@ -45,11 +62,11 @@ export function DelayPuzzle({ room, puzzle }: { room: Room; puzzle: DelayPz }) {
     if (correct) {
       result = solve({ solved: true, optimal: true, noHints: !helped })
       setCelebrate(c => c + 1)
-    }
+    } else markHelped() // the answer is now on screen, so a reload must not earn the no-hints star
     setDone({ correct, result })
   }
 
-  const retry = () => { setDone(null); setAnswer(''); setHelped(true) }
+  const retry = () => { setDone(null); setAnswer(''); markHelped() }
 
   return (
     <div className="lab-body">
@@ -83,7 +100,7 @@ export function DelayPuzzle({ room, puzzle }: { room: Room; puzzle: DelayPz }) {
             </div>
           )}
         </div>
-        <Hints hints={room.hints} shown={hintsShown} onReveal={() => { setHintsShown(s => s + 1); setHelped(true) }} />
+        <Hints hints={room.hints} shown={hintsShown} onReveal={() => { setHintsShown(s => s + 1); markHelped() }} />
       </div>
     </div>
   )

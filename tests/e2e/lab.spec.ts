@@ -7,12 +7,11 @@ async function wire(page: Page, from: string, to: string, toPin = 0) {
   await pin(page, to, 'in', toPin).click()
 }
 
-test('build the NAND half adder by hand, with live glow', async ({ page }) => {
-  await page.goto('/#/room/sw-3-r1')
+/** n1 = NAND(A,B); S = NAND(NAND(A,n1), NAND(B,n1)); C = NAND(n1,n1) */
+async function buildHalfAdder(page: Page) {
   await page.getByRole('button', { name: 'נקה' }).click()
   for (let i = 0; i < 5; i++) await page.getByTestId('palette-NAND').click()
   await expect(page.locator('[data-testid^="node-g"]')).toHaveCount(5)
-  // n1 = NAND(A,B); S = NAND(NAND(A,n1), NAND(B,n1)); C = NAND(n1,n1)
   await wire(page, 'A', 'g1', 0); await wire(page, 'B', 'g1', 1)
   await wire(page, 'A', 'g2', 0); await wire(page, 'g1', 'g2', 1)
   await wire(page, 'B', 'g3', 0); await wire(page, 'g1', 'g3', 1)
@@ -20,6 +19,11 @@ test('build the NAND half adder by hand, with live glow', async ({ page }) => {
   await wire(page, 'g1', 'g5', 0); await wire(page, 'g1', 'g5', 1)
   await wire(page, 'g5', 'C'); await wire(page, 'g4', 'S')
   await expect(page.locator('[data-testid="wire"]')).toHaveCount(12)
+}
+
+test('build the NAND half adder by hand, with live glow', async ({ page }) => {
+  await page.goto('/#/room/sw-3-r1')
+  await buildHalfAdder(page)
 
   // live: A=1, B=0 -> S=1, C=0
   await page.getByTestId('node-A').click()
@@ -82,4 +86,30 @@ test('other puzzle types show a placeholder; unknown room is not found', async (
   await expect(page.getByText('בבנייה')).toBeVisible()
   await page.goto('/#/room/nope')
   await expect(page.getByText('לא נמצא')).toBeVisible()
+})
+
+test('a hint still costs the star after a reload', async ({ page }) => {
+  await page.goto('/#/room/sw-3-r1')
+  await page.getByRole('button', { name: /רמז/ }).click()
+  await expect(page.getByTestId('hint')).toHaveCount(1)
+  await page.reload()
+  await expect(page.getByTestId('hint')).toHaveCount(0)
+  await buildHalfAdder(page)
+  await page.getByRole('button', { name: 'בדוק' }).click()
+  await expect(page.getByText('נכון!')).toBeVisible()
+  await expect(page.getByTestId('result-stars')).toHaveAttribute('aria-label', '2 מתוך 3 כוכבים')
+  await page.goto('/#/room/sw-3-r1')
+  await page.reload()
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('logic-quest-save')!))
+  expect(saved.rooms['sw-3-r1']).toEqual({ solved: true, optimal: true, noHints: false })
+  expect(saved.helped['sw-3-r1']).toBeUndefined()
+})
+
+test('a correct solve is saved even if the player leaves during the check sweep', async ({ page }) => {
+  await page.goto('/?autofill=1#/room/sw-3-r1')
+  await expect(page.locator('[data-testid="wire"]')).toHaveCount(12)
+  await page.getByRole('button', { name: 'בדוק' }).click()
+  await page.goto('/#/')
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('logic-quest-save')!))
+  expect(saved.rooms['sw-3-r1']?.solved).toBe(true)
 })

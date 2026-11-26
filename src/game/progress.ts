@@ -9,6 +9,8 @@ export interface SaveData {
   knowledge: string[]
   bestRun: Record<string, number>
   flagged: string[]
+  /** Rooms where help (a hint, autofill, a retry after seeing the answer) was used since the last solve. */
+  helped: Record<string, true>
 }
 export interface ProgressStore {
   load(): SaveData
@@ -21,7 +23,7 @@ export const SAVE_KEY = 'logic-quest-save'
 export const BACKUP_KEY = 'logic-quest-save-backup'
 
 export function emptySave(): SaveData {
-  return { version: 1, rooms: {}, chips: {}, drafts: {}, knowledge: [], bestRun: {}, flagged: [] }
+  return { version: 1, rooms: {}, chips: {}, drafts: {}, knowledge: [], bestRun: {}, flagged: [], helped: {} }
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -52,8 +54,9 @@ function normalize(v: unknown): SaveData | null {
   if (!isObj(rooms) || !Object.values(rooms).every(r => isObj(r) && typeof r.solved === 'boolean' && typeof r.optimal === 'boolean' && typeof r.noHints === 'boolean')) return null
   if (!isObj(chips) || !isObj(drafts)) return null
   if (!isStrArr(knowledge) || !isStrArr(flagged)) return null
+  const helped = isObj(v.helped) ? filterEntries(v.helped, (x): x is true => x === true) : {}
   if (!isObj(bestRun) || !Object.values(bestRun).every(n => typeof n === 'number')) return null
-  return { version: 1, rooms: rooms as SaveData['rooms'], chips: filterEntries(chips, validChip), drafts: filterEntries(drafts, validCircuit), knowledge, bestRun: bestRun as SaveData['bestRun'], flagged }
+  return { version: 1, rooms: rooms as SaveData['rooms'], chips: filterEntries(chips, validChip), drafts: filterEntries(drafts, validCircuit), knowledge, bestRun: bestRun as SaveData['bestRun'], flagged, helped }
 }
 
 export class LocalProgressStore implements ProgressStore {

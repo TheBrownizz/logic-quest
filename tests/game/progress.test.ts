@@ -53,7 +53,7 @@ describe('LocalProgressStore', () => {
     expect(s.importJSON('{"version":1,"rooms":5}').ok).toBe(false)
   })
   it('SaveData has no run field', () => {
-    expect(Object.keys(emptySave()).sort()).toEqual(['bestRun', 'chips', 'drafts', 'flagged', 'knowledge', 'rooms', 'version'])
+    expect(Object.keys(emptySave()).sort()).toEqual(['bestRun', 'chips', 'drafts', 'flagged', 'helped', 'knowledge', 'rooms', 'version'])
   })
   it('drops bad chips/drafts entries, keeps good ones', () => {
     const c = { nodes: [], wires: [] }
@@ -67,5 +67,21 @@ describe('LocalProgressStore', () => {
     for (const v of ['{"version":1,"knowledge":[1]}', '{"version":1,"bestRun":{"a":"x"}}'])
       expect(new LocalProgressStore(fake({ 'logic-quest-save': v })).load()).toEqual(emptySave())
     expect(new LocalProgressStore(fake()).importJSON('{"version":1,"knowledge":[1]}').ok).toBe(false)
+  })
+  it('helped: defaults to {} for an old v1 save, keeps true entries, drops bad ones', () => {
+    expect(emptySave().helped).toEqual({})
+    const old = new LocalProgressStore(fake({ 'logic-quest-save': '{"version":1,"rooms":{}}' })).load()
+    expect(old.helped).toEqual({})
+    const raw = JSON.stringify({ version: 1, helped: { a: true, b: false, c: 'yes', d: 1 } })
+    expect(new LocalProgressStore(fake({ 'logic-quest-save': raw })).load().helped).toEqual({ a: true })
+    const bad = JSON.stringify({ version: 1, helped: [1, 2] })
+    expect(new LocalProgressStore(fake({ 'logic-quest-save': bad })).load().helped).toEqual({})
+  })
+  it('helped survives export/import', () => {
+    const a = new LocalProgressStore(fake())
+    a.save({ ...emptySave(), helped: { r1: true } })
+    const b = new LocalProgressStore(fake())
+    expect(b.importJSON(a.exportJSON())).toEqual({ ok: true })
+    expect(b.load().helped).toEqual({ r1: true })
   })
 })

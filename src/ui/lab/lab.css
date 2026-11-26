@@ -35,7 +35,7 @@
 .wire-base { fill: none; stroke: var(--zero); stroke-width: 3.5; stroke-linecap: round; transition: stroke .2s, filter .2s; }
 .wire.unknown .wire-base { stroke: var(--zero); stroke-dasharray: 2 6; opacity: .7; }
 .wire.on .wire-base { stroke: var(--one); filter: drop-shadow(0 0 4px var(--one)); }
-.wire-flow { fill: none; stroke: #eafff2; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 2 16; opacity: .75; animation: flow .8s linear infinite; pointer-events: none; }
+.wire-flow { fill: none; stroke: var(--flow); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 2 16; opacity: .75; animation: flow .8s linear infinite; pointer-events: none; }
 .wire-hit { fill: none; stroke: transparent; stroke-width: 14; cursor: pointer; }
 .readonly .wire-hit { cursor: default; }
 .wire.selected .wire-base { stroke: var(--amber); filter: drop-shadow(0 0 5px var(--amber)); }
@@ -79,7 +79,7 @@
 .io.in.on .io-bit { fill: var(--one); }
 .lamp { fill: var(--surface); stroke: var(--zero); stroke-width: 2.5; transition: fill .2s, stroke .2s, filter .2s; }
 .io.out.on .lamp { fill: var(--one); stroke: var(--one); filter: drop-shadow(0 0 10px var(--one)); }
-.io.out.on .io-bit { fill: #04210f; }
+.io.out.on .io-bit { fill: var(--on-one); }
 .io.out.unknown .lamp { stroke-dasharray: 4 4; }
 .io.out .io-label { text-anchor: start; }
 

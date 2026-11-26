@@ -10,7 +10,7 @@ import { NotFound } from '../StageScreen'
 import { Stars } from '../Stars'
 import { CircuitEditor } from './CircuitEditor'
 import { DelayPuzzle } from './DelayPuzzle'
-import { Hints, useSolve } from './roomParts'
+import { Hints, useHelped, useSolve } from './roomParts'
 import {
   alignTable, autoLayout, checkCircuit, errorText, findRoom, hasQueryFlag, initialCircuit,
   needsLayout, refersToChip, usableDraft, type CheckResult, type CircuitPuzzle,
@@ -56,7 +56,7 @@ function CircuitRoom({ room, puzzle }: { room: Room; puzzle: CircuitPuzzle }) {
     if (!usableDraft(d, spec)) return initialCircuit(spec)
     return needsLayout(d) ? autoLayout(d) : d
   })
-  const [helped, setHelped] = useState(false)
+  const [helped, markHelped] = useHelped(room.id)
   const [hintsShown, setHintsShown] = useState(0)
   const [inputs, setInputs] = useState<Record<string, Bit>>({})
   const [verdict, setVerdict] = useState<Verdict | null>(null)
@@ -68,6 +68,7 @@ function CircuitRoom({ room, puzzle }: { room: Room; puzzle: CircuitPuzzle }) {
     if (sweep !== null) return
     setCircuit(c)
     setVerdict(null)
+    setCelebrate(0)
     update(d => ({ ...d, drafts: { ...d.drafts, [room.id]: c } }))
   }
 
@@ -75,22 +76,13 @@ function CircuitRoom({ room, puzzle }: { room: Room; puzzle: CircuitPuzzle }) {
   useEffect(() => {
     if (autofilled.current || !hasQueryFlag(window.location.search, window.location.hash, 'autofill')) return
     autofilled.current = true
-    setHelped(true)
+    markHelped()
     edit(autoLayout(puzzle.reference))
   }, [])
 
-  const finish = (v: Verdict) => {
-    if (v.res.kind === 'ok') {
-      const ok = v.res
-      // never store a chip that contains itself (only possible through an old draft)
-      const unlock = puzzle.unlocksChip && !refersToChip(circuit, puzzle.unlocksChip.name, chips) ? puzzle.unlocksChip : undefined
-      v.result = solve({ solved: true, optimal: ok.optimal, noHints: !helped }, unlock
-        ? d => ({ ...d, chips: { ...d.chips, [unlock.name]: { name: unlock.name, inputs: [...unlock.inputs], outputs: [...unlock.outputs], circuit } } })
-        : undefined)
-      v.attempt = { solved: true, optimal: ok.optimal, noHints: !helped }
-      v.unlocked = unlock?.name
-      setCelebrate(c => c + 1)
-    }
+  /** Shows a verdict that has already been saved. */
+  const reveal = (v: Verdict) => {
+    if (v.res.kind === 'ok') setCelebrate(c => c + 1)
     setVerdict(v)
   }
 
@@ -98,27 +90,44 @@ function CircuitRoom({ room, puzzle }: { room: Room; puzzle: CircuitPuzzle }) {
     if (sweep !== null) return
     const res = checkCircuit(circuit, puzzle, chips)
     let table: TruthTable | undefined
+    const v: Verdict = { res }
     if (res.kind === 'ok') {
       try {
         const t = circuitTruthTable(circuit, chips)
         if (!('error' in t)) table = alignTable(spec, t)
       } catch { /* shown as the spec only */ }
+      // Save now, so leaving during the sweep can't lose the solve. Never store a chip that
+      // contains itself (only possible through an old draft).
+      const unlock = puzzle.unlocksChip && !refersToChip(circuit, puzzle.unlocksChip.name, chips) ? puzzle.unlocksChip : undefined
+      v.attempt = { solved: true, optimal: res.optimal, noHints: !helped }
+      v.result = solve(v.attempt, unlock
+        ? d => ({ ...d, chips: { ...d.chips, [unlock.name]: { name: unlock.name, inputs: [...unlock.inputs], outputs: [...unlock.outputs], circuit } } })
+        : undefined)
+      v.unlocked = unlock?.name
     } else if (res.kind === 'mismatch') table = res.actual
-    const v: Verdict = { res, table }
+    v.table = table
     setVerdict(null)
+    setCelebrate(0)
     if (table && spec.rows.length <= 16) { pendingRef.current = v; setSweep(0) }
-    else finish(v)
+    else reveal(v)
   }
 
   // Run through every input row on the canvas before revealing the verdict.
+  const rowCount = spec.rows.length
   useEffect(() => {
     if (sweep === null) return
     const t = setTimeout(() => {
-      if (sweep + 1 < spec.rows.length) setSweep(sweep + 1)
-      else { setSweep(null); if (pendingRef.current) finish(pendingRef.current); pendingRef.current = null }
+      if (sweep + 1 < rowCount) setSweep(sweep + 1)
+      else {
+        setSweep(null)
+        const v = pendingRef.current
+        pendingRef.current = null
+        if (v) reveal(v)
+      }
     }, 230)
     return () => clearTimeout(t)
-  })
+    // reveal only calls state setters, so the timer depends on the row alone
+  }, [sweep, rowCount])
 
   const rowInputs = (row: number): Record<string, Bit> =>
     Object.fromEntries(spec.inputs.map((name, j) => [name, ((row >> (spec.inputs.length - 1 - j)) & 1) as Bit]))
@@ -159,7 +168,7 @@ function CircuitRoom({ room, puzzle }: { room: Room; puzzle: CircuitPuzzle }) {
               revealed={sweep === null ? spec.rows.length : sweep + 1} mismatch={sweep === null && res?.kind === 'mismatch'} />
           )}
         </div>
-        <Hints hints={room.hints} shown={hintsShown} onReveal={() => { setHintsShown(s => s + 1); setHelped(true) }} />
+        <Hints hints={room.hints} shown={hintsShown} onReveal={() => { setHintsShown(s => s + 1); markHelped() }} />
       </div>
     </div>
   )

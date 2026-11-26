@@ -8,6 +8,8 @@
   --muted: #8b99c4;
   --one: #39ff88;
   --one-glow: rgba(57, 255, 136, 0.35);
+  --on-one: #04210f;
+  --flow: #eafff2;
   --zero: #5b6685;
   --amber: #ffb938;
   --amber-glow: rgba(255, 185, 56, 0.35);
@@ -28,6 +30,8 @@
     --muted: #5a6690;
     --one: #0b8f4a;
     --one-glow: rgba(11, 143, 74, 0.25);
+    --on-one: #ffffff;
+    --flow: #d9fbe8;
     --zero: #8b95b3;
     --amber: #b86e00;
     --amber-glow: rgba(184, 110, 0, 0.25);
@@ -80,7 +84,7 @@ a { color: inherit; text-decoration: none; }
 .btn.ghost { background: transparent; }
 .btn.danger:hover { border-color: var(--danger); box-shadow: none; color: var(--danger); }
 .btn.primary {
-  background: var(--one); color: #04210f; border-color: var(--one); font-weight: 700;
+  background: var(--one); color: var(--on-one); border-color: var(--one); font-weight: 700;
   padding: 12px 28px; box-shadow: 0 0 18px var(--one-glow); margin-top: 8px;
 }
 .btn.primary:hover { transform: translateY(-1px); box-shadow: 0 0 28px var(--one-glow); border-color: var(--one); }
