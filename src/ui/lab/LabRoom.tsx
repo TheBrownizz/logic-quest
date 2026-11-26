@@ -9,7 +9,10 @@ import { useSave } from '../save'
 import { NotFound } from '../StageScreen'
 import { Stars } from '../Stars'
 import { CircuitEditor } from './CircuitEditor'
+import { CodePuzzle } from './CodePuzzle'
 import { DelayPuzzle } from './DelayPuzzle'
+import { KMapPuzzle } from './KMapPuzzle'
+import { NumberPuzzle } from './NumberPuzzle'
 import { Hints, useHelped, useSolve } from './roomParts'
 import {
   alignTable, autoLayout, checkCircuit, errorText, findRoom, hasQueryFlag, initialCircuit,
@@ -29,7 +32,9 @@ export function LabRoom({ roomId }: { roomId: string }) {
       <p className="intro">{room.intro}</p>
       {pz.type === 'circuit' ? <CircuitRoom key={room.id} room={room} puzzle={pz} />
         : pz.type === 'delay' ? <DelayPuzzle key={room.id} room={room} puzzle={pz} />
-          : <p className="muted">בבנייה</p>}
+          : pz.type === 'kmap' ? <KMapPuzzle key={room.id} room={room} puzzle={pz} />
+            : pz.type === 'number' ? <NumberPuzzle key={room.id} room={room} puzzle={pz} />
+              : <CodePuzzle key={room.id} room={room} puzzle={pz} />}
     </section>
   )
 }

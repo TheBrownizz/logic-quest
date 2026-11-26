@@ -144,3 +144,34 @@ describe('lab logic', () => {
     expect(parseHash('#/room/sw-3-r1?autofill=1')).toEqual({ name: 'room', roomId: 'sw-3-r1' })
   })
 })
+
+import { checkCode, checkNumber, dragSelection } from '../../src/ui/lab/labLogic'
+
+describe('number and code checks', () => {
+  it('exact normalises spaces and case', () => {
+    expect(checkNumber('exact', ' 1011 0101 ', '10110101')).toBe(true)
+    expect(checkNumber('exact', 'ff', 'FF')).toBe(true)
+    expect(checkNumber('exact', '1011', '10110101')).toBe(false)
+  })
+  it('numeric compares values', () => {
+    expect(checkNumber('numeric', '0.50', '0.5')).toBe(true)
+    expect(checkNumber('numeric', 'abc', '0.5')).toBe(false)
+    expect(checkNumber('numeric', '', '0')).toBe(false)
+  })
+  it('code room checks every input against encode (inline fixture)', () => {
+    const encode = (b: string) => b.split('').reverse().join('')
+    const inputs = ['0011', '1000']
+    expect(checkCode(encode, inputs, ['1100', '0001'])).toEqual([true, true])
+    expect(checkCode(encode, inputs, ['1100', '0 0 0 1'])).toEqual([true, true])
+    expect(checkCode(encode, inputs, ['1100', '1000'])).toEqual([true, false])
+    expect(checkCode(encode, inputs, ['1100'])).toEqual([true, false])
+  })
+})
+
+describe('k-map drag selection', () => {
+  it('plain drag is the rectangle; shift wraps through the edge', () => {
+    expect(dragSelection([0, 0], [1, 2], 4, 4, false)).toEqual({ rows: [0, 1], cols: [0, 1, 2] })
+    expect(dragSelection([0, 0], [3, 3], 4, 4, true)).toEqual({ rows: [3, 0], cols: [3, 0] })
+    expect(dragSelection([2, 1], [2, 1], 4, 4, true)).toEqual({ rows: [2], cols: [1] })
+  })
+})

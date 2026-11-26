@@ -81,9 +81,7 @@ test('delay room: answer, then critical path and arrival times', async ({ page }
   await expect(page.getByTestId('arrival-F')).toContainText('3')
 })
 
-test('other puzzle types show a placeholder; unknown room is not found', async ({ page }) => {
-  await page.goto('/#/room/sw-4-r1')
-  await expect(page.getByText('בבנייה')).toBeVisible()
+test('unknown room is not found', async ({ page }) => {
   await page.goto('/#/room/nope')
   await expect(page.getByText('לא נמצא')).toBeVisible()
 })

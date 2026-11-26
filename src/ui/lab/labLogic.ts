@@ -239,3 +239,37 @@ export function liveValues(c: Circuit, inputs: Record<string, Bit>, chips: Chips
   c.nodes.forEach(n => visit(n.id))
   return vals
 }
+
+const normalise = (s: string) => s.replace(/\s+/g, '').toUpperCase()
+
+/** 'exact' ignores spaces and case; 'numeric' compares values (tolerance 1e-9). */
+export function checkNumber(mode: 'exact' | 'numeric', given: string, answer: string): boolean {
+  if (mode === 'exact') return normalise(given) === normalise(answer)
+  if (given.trim() === '') return false
+  const a = parseFloat(given)
+  const b = parseFloat(answer)
+  return Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) <= 1e-9
+}
+
+/** Per input, whether the typed output bits equal `encode(input)`. */
+export function checkCode(encode: (bits: string) => string, inputs: string[], given: string[]): boolean[] {
+  return inputs.map((inp, i) => normalise(given[i] ?? '') === normalise(encode(inp)))
+}
+
+/**
+ * Rows and columns picked by dragging between two cells. A plain drag is the rectangle between them;
+ * with `wrap` each axis runs the other way round, through the edge (hi..last, 0..lo).
+ */
+export function dragSelection(a: [number, number], b: [number, number], rows: number, cols: number, wrap: boolean): { rows: number[]; cols: number[] } {
+  const axis = (x: number, y: number, n: number) => {
+    const lo = Math.min(x, y)
+    const hi = Math.max(x, y)
+    const out: number[] = []
+    if (wrap && lo !== hi) {
+      for (let i = hi; i < n; i++) out.push(i)
+      for (let i = 0; i <= lo; i++) out.push(i)
+    } else for (let i = lo; i <= hi; i++) out.push(i)
+    return out
+  }
+  return { rows: axis(a[0], b[0], rows), cols: axis(a[1], b[1], cols) }
+}

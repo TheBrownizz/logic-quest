@@ -17,6 +17,7 @@
   --font-ui: 'Rubik', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
   --radius: 14px;
+  --g1: #ff7ac8; --g2: #5ec8ff; --g3: #b394ff; --g4: #ff9a5e; --g5: #ffe066; --g6: #4de0c8;
   color-scheme: dark;
 }
 @media (prefers-color-scheme: light) {
@@ -36,6 +37,7 @@
     --amber: #b86e00;
     --amber-glow: rgba(184, 110, 0, 0.25);
     --danger: #c62839;
+    --g1: #c2257f; --g2: #0a79b8; --g3: #6d3fd1; --g4: #c2561a; --g5: #a07a00; --g6: #0a8a76;
     color-scheme: light;
   }
 }

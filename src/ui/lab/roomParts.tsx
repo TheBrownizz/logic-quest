@@ -1,6 +1,9 @@
+import type { ReactNode } from 'react'
 import type { Hint } from '../../content/types'
 import type { RoomResult, SaveData } from '../../game/progress'
+import { stars } from '../../game/rules'
 import { useSave } from '../save'
+import { Stars } from '../Stars'
 import { mergeResult } from './labLogic'
 
 /**
@@ -43,3 +46,20 @@ export function Hints({ hints, shown, onReveal }: { hints: Hint[]; shown: number
     </div>
   )
 }
+
+/** Shared "solved" panel for rooms that have no per-room extras. */
+export function SolvedVerdict({ result, children }: { result?: RoomResult; children?: ReactNode }) {
+  return (
+    <div className="verdict good" role="status">
+      <div className="verdict-head">
+        <strong className="verdict-title">נכון!</strong>
+        <Stars n={stars(result)} testId="result-stars" />
+      </div>
+      {children}
+    </div>
+  )
+}
+
+export const WRONG_TEXT = 'לא נכון, נסו שוב'
+/** Wrong attempts after which the answer may be revealed. */
+export const REVEAL_AFTER = 3
