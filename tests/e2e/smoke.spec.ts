@@ -24,12 +24,12 @@ test('locked stage cannot be entered', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'ריצת חקירה' })).toHaveCount(0)
 })
 
-test('save menu opens, placeholder routes', async ({ page }) => {
+test('save menu opens, collection route', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'שמירה' }).click()
   await expect(page.getByRole('button', { name: 'ייצוא' })).toBeVisible()
   await page.goto('/#/collection')
-  await expect(page.getByText('בבנייה')).toBeVisible()
+  await expect(page.getByTestId('collected')).toContainText('נאספו 0/')
 })
 
 const seed = (rooms: Record<string, { solved: boolean; optimal: boolean; noHints: boolean }>) =>
