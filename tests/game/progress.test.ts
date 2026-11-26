@@ -42,4 +42,17 @@ describe('LocalProgressStore', () => {
   it('SaveData has no run field', () => {
     expect(Object.keys(emptySave()).sort()).toEqual(['bestRun', 'chips', 'drafts', 'flagged', 'knowledge', 'rooms', 'version'])
   })
+  it('drops bad chips/drafts entries, keeps good ones', () => {
+    const c = { nodes: [], wires: [] }
+    const chip = { name: 'n', inputs: ['a'], outputs: ['b'], circuit: c }
+    const raw = JSON.stringify({ version: 1, drafts: { a: null, ok: c }, chips: { x: 5, good: chip } })
+    const s = new LocalProgressStore(fake({ 'logic-quest-save': raw })).load()
+    expect(s.drafts).toEqual({ ok: c })
+    expect(s.chips).toEqual({ good: chip })
+  })
+  it('bad knowledge / bestRun -> rejected', () => {
+    for (const v of ['{"version":1,"knowledge":[1]}', '{"version":1,"bestRun":{"a":"x"}}'])
+      expect(new LocalProgressStore(fake({ 'logic-quest-save': v })).load()).toEqual(emptySave())
+    expect(new LocalProgressStore(fake()).importJSON('{"version":1,"knowledge":[1]}').ok).toBe(false)
+  })
 })

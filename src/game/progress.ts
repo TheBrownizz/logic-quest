@@ -26,6 +26,18 @@ export function emptySave(): SaveData {
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 const isStrArr = (v: unknown): v is string[] => Array.isArray(v) && v.every(x => typeof x === 'string')
 
+const validCircuit = (v: unknown): v is Circuit =>
+  isObj(v) && Array.isArray(v.nodes) && Array.isArray(v.wires) &&
+  v.nodes.every(n => isObj(n) && typeof n.id === 'string') &&
+  v.wires.every(w => isObj(w) && isObj(w.from) && isObj(w.to))
+
+const validChip = (v: unknown): v is Chip =>
+  isObj(v) && typeof v.name === 'string' && isStrArr(v.inputs) && isStrArr(v.outputs) && validCircuit(v.circuit)
+
+function filterEntries<T>(o: Record<string, unknown>, ok: (v: unknown) => v is T): Record<string, T> {
+  return Object.fromEntries(Object.entries(o).filter(([, x]) => ok(x))) as Record<string, T>
+}
+
 /** Validates a parsed value as a version-1 save, filling missing fields with empty defaults. */
 function normalize(v: unknown): SaveData | null {
   if (!isObj(v) || v.version !== 1) return null
@@ -40,7 +52,7 @@ function normalize(v: unknown): SaveData | null {
   if (!isObj(chips) || !isObj(drafts)) return null
   if (!isStrArr(knowledge) || !isStrArr(flagged)) return null
   if (!isObj(bestRun) || !Object.values(bestRun).every(n => typeof n === 'number')) return null
-  return { version: 1, rooms: rooms as SaveData['rooms'], chips: chips as SaveData['chips'], drafts: drafts as SaveData['drafts'], knowledge, bestRun: bestRun as SaveData['bestRun'], flagged }
+  return { version: 1, rooms: rooms as SaveData['rooms'], chips: filterEntries(chips, validChip), drafts: filterEntries(drafts, validCircuit), knowledge, bestRun: bestRun as SaveData['bestRun'], flagged }
 }
 
 export class LocalProgressStore implements ProgressStore {

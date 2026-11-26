@@ -35,4 +35,12 @@ describe('run', () => {
     let t = startRun(cards(2), mulberry32(1)); t = answer(answer(t, true), true)
     expect(t.done).toBe(true)
   })
+  it('does not mutate input', () => {
+    const input = cards(30), ids = input.map(c => c.id)
+    startRun(input, mulberry32(3))
+    expect(input.map(c => c.id)).toEqual(ids)
+  })
+  it('empty deck is done', () => {
+    expect(startRun([], mulberry32(1))).toMatchObject({ deck: [], done: true })
+  })
 })
