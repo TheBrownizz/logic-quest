@@ -1,16 +1,30 @@
 import { matches } from '../logic/boolean'
 import { arrivalTimes, circuitTruthTable, gateCount, usesOnly, type Chip } from '../logic/circuit'
+import type { Circuit } from '../logic/circuit'
 import type { Card, Room, World } from './types'
 
 const norm = (s: string) => s.replace(/\s+/g, '').toUpperCase()
 const sameList = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i])
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
+/** The editor's gates take exactly 2 inputs (NOT takes 1); chips are not limited. */
+function checkFanIn(c: Circuit, err: (m: string) => void): void {
+  const count = new Map<string, number>()
+  for (const x of c.wires) count.set(x.to.node, (count.get(x.to.node) ?? 0) + 1)
+  for (const nd of c.nodes) {
+    if (typeof nd.kind === 'object' || nd.kind === 'IN' || nd.kind === 'OUT') continue
+    const k = count.get(nd.id) ?? 0
+    const max = nd.kind === 'NOT' ? 1 : 2
+    if (k > max) err(`gate ${nd.id} (${nd.kind}) has ${k} inputs; the editor allows ${max}`)
+  }
+}
+
 function validateRoom(room: Room, chips: Record<string, Chip>, errs: string[]): void {
   const p = room.puzzle
   const err = (m: string) => errs.push(`${room.id}: ${m}`)
   switch (p.type) {
     case 'circuit': {
+      checkFanIn(p.reference, err)
       try {
         const tt = circuitTruthTable(p.reference, chips)
         if ('error' in tt) {
@@ -49,6 +63,7 @@ function validateRoom(room: Room, chips: Record<string, Chip>, errs: string[]): 
       break
     }
     case 'delay': {
+      checkFanIn(p.circuit, err)
       try {
         const at = arrivalTimes(p.circuit, chips)
         if (!(p.askAt in at)) err(`askAt node "${p.askAt}" does not exist`)
@@ -72,7 +87,8 @@ function validateCard(card: Card, stageId: string, errs: string[]): void {
   if (card.kind === 'claim') {
     const words = card.examReason.trim().split(/\s+/).filter(Boolean)
     if (words.length > 15) err(`examReason has ${words.length} words (max 15)`)
-    if (card.reasons.length === 0) err('claim has no reasons')
+    if (card.reasons.length < 2) err(`claim has ${card.reasons.length} reasons (need at least 2)`)
+    if (new Set(card.reasons.map(r => r.trim())).size !== card.reasons.length) err('claim reasons are not distinct')
     if (!Number.isInteger(card.correctReason) || card.correctReason < 0 || card.correctReason >= card.reasons.length) {
       err('correctReason out of range')
     }

@@ -93,6 +93,24 @@ describe('validateWorld', () => {
     expect(validateWorld(world([c(['0101'])]))).toEqual([])
     expect(validateWorld(world([c([])])).length).toBeGreaterThan(0)
   })
+  it('flags claims with fewer than 2 reasons, duplicate reasons, or correctReason out of range', () => {
+    const errs = (over: Record<string, unknown>) => validateWorld(world([], [claim('c1', over)]))
+    expect(errs({ reasons: ['a'] }).some(e => e.startsWith('c1') && /reasons/.test(e))).toBe(true)
+    expect(errs({ reasons: ['a', 'a', 'b'] }).some(e => e.startsWith('c1') && /distinct/.test(e))).toBe(true)
+    expect(errs({ correctReason: 2 }).some(e => e.startsWith('c1') && /correctReason/.test(e))).toBe(true)
+    expect(errs({ reasons: ['a', 'b', 'c'], correctReason: 2 })).toEqual([])
+  })
+  it('flags gates with more than 2 inputs in references and delay circuits', () => {
+    const and3: Circuit = {
+      nodes: [n('A', 'IN', 'A'), n('B', 'IN', 'B'), n('C', 'IN', 'C'), n('g', 'AND'), n('F', 'OUT', 'F')],
+      wires: [w('A', 'g', 0), w('B', 'g', 1), w('C', 'g', 2), w('g', 'F')],
+    }
+    const spec3 = { inputs: ['A', 'B', 'C'], outputs: ['F'], rows: [[0], [0], [0], [0], [0], [0], [0], [1]] as (0 | 1)[][] }
+    const errs = validateWorld(world([room('r1', { reference: and3, spec: spec3 })]))
+    expect(errs.some(e => e.startsWith('r1') && /3 inputs/.test(e))).toBe(true)
+    const d: Room = { id: 'd', title: 't', intro: 'i', hints: [], puzzle: { type: 'delay', circuit: and3, askAt: 'F', answer: 0 } }
+    expect(validateWorld(world([d])).some(e => e.startsWith('d') && /3 inputs/.test(e))).toBe(true)
+  })
   describe('chips', () => {
     const haRoom = (id: string): Room => room(id, { unlocksChip: { name: 'HA', inputs: ['A', 'B'], outputs: ['F'] } })
     const useHa: Circuit = {

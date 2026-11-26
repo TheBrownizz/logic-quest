@@ -111,3 +111,12 @@ test('a correct solve is saved even if the player leaves during the check sweep'
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('logic-quest-save')!))
   expect(saved.rooms['sw-3-r1']?.solved).toBe(true)
 })
+
+test('adder/subtractor delay room works before the player has built FA', async ({ page }) => {
+  await page.goto('/#/room/sw-5-r8')
+  await expect(page.getByText('מה ה-TPD בנקודה V?')).toBeVisible()
+  await page.getByRole('spinbutton').fill('450')
+  await page.getByRole('button', { name: 'בדוק' }).click()
+  await expect(page.getByText('נכון!')).toBeVisible()
+  await expect(page.getByTestId('arrival-V')).toContainText('450')
+})

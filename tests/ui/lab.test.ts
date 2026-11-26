@@ -10,7 +10,7 @@ import { parseHash } from '../../src/ui/router'
 import { checkCode, checkNumber, dragSelection } from '../../src/ui/lab/labLogic'
 import { groupToTerm } from '../../src/logic/kmap'
 
-const ha = stage3.rooms[0].puzzle as Extract<LabPuzzle, { type: 'circuit' }>
+const ha = stage3.rooms.find(r => r.id === 'sw-3-r1')!.puzzle as Extract<LabPuzzle, { type: 'circuit' }>
 
 describe('lab logic', () => {
   it('finds rooms across worlds', () => {

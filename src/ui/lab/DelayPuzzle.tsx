@@ -7,13 +7,18 @@ import { useSave } from '../save'
 import { Stars } from '../Stars'
 import { CircuitEditor } from './CircuitEditor'
 import { Hints, useHelped, useSolve } from './roomParts'
-import { autoLayout, needsLayout } from './labLogic'
+import { autoLayout, findRoom, needsLayout } from './labLogic'
+import { referenceChips } from '../../content/chips'
 
 type DelayPz = Extract<LabPuzzle, { type: 'delay' }>
 
 export function DelayPuzzle({ room, puzzle }: { room: Room; puzzle: DelayPz }) {
   const [save] = useSave()
   const solve = useSolve(room.id)
+  // A delay room is a fixed diagram: it must render (and time) the same whether or not the player has built
+  // its chips yet, so the world's reference chips take precedence over the player's own.
+  const world = findRoom(room.id)?.world
+  const chips = useMemo(() => ({ ...save.chips, ...(world ? referenceChips(world) : {}) }), [save.chips, world])
   const circuit = useMemo(() => (needsLayout(puzzle.circuit) ? autoLayout(puzzle.circuit) : puzzle.circuit), [puzzle.circuit])
   const at = circuit.nodes.find(n => n.id === puzzle.askAt)
   const label = at?.label ?? puzzle.askAt
@@ -29,10 +34,10 @@ export function DelayPuzzle({ room, puzzle }: { room: Room; puzzle: DelayPz }) {
     const of = (n: Node): number | undefined => {
       if (n.delay !== undefined) return n.delay
       if (typeof n.kind !== 'object') return 0
-      const chip = save.chips[n.kind.chip]
+      const chip = chips[n.kind.chip]
       if (!chip) return undefined
       try {
-        const t = arrivalTimes(chip.circuit, save.chips, [chip.name])
+        const t = arrivalTimes(chip.circuit, chips, [chip.name])
         return Math.max(0, ...chip.circuit.nodes.filter(o => o.kind === 'OUT').map(o => t[o.id] ?? 0))
       } catch { return undefined }
     }
@@ -43,15 +48,15 @@ export function DelayPuzzle({ room, puzzle }: { room: Room; puzzle: DelayPz }) {
       if (d !== undefined) tags[n.id] = `${d} ns`
     }
     return tags
-  }, [circuit, save.chips])
+  }, [circuit, chips])
 
   const analysis = useMemo(() => {
     if (!done) return null
     try {
-      const t = arrivalTimes(circuit, save.chips)
-      return { path: criticalPath(circuit, puzzle.askAt, save.chips), below: Object.fromEntries(Object.entries(t).map(([id, v]) => [id, `t=${v}`])) }
+      const t = arrivalTimes(circuit, chips)
+      return { path: criticalPath(circuit, puzzle.askAt, chips), below: Object.fromEntries(Object.entries(t).map(([id, v]) => [id, `t=${v}`])) }
     } catch { return null }
-  }, [done, circuit, puzzle.askAt, save.chips])
+  }, [done, circuit, puzzle.askAt, chips])
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -70,7 +75,7 @@ export function DelayPuzzle({ room, puzzle }: { room: Room; puzzle: DelayPz }) {
 
   return (
     <div className="lab-body">
-      <CircuitEditor value={circuit} chips={save.chips} readOnly above={delays} below={analysis?.below}
+      <CircuitEditor value={circuit} chips={chips} readOnly above={delays} below={analysis?.below}
         highlightPath={analysis?.path} celebrate={celebrate} />
       <form className="delay-q" onSubmit={submit}>
         <label htmlFor="tpd">מה ה-TPD בנקודה {label}?</label>

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { switchingWorld } from '../../src/content/switching/world'
 
 test('map -> world -> stage path, rtl', async ({ page }) => {
   await page.goto('/')
@@ -39,7 +40,7 @@ test('NAND half adder room: autofill, check, stars on the stage screen', async (
   const done = { solved: true, optimal: true, noHints: true }
   await page.addInitScript(s => {
     if (!sessionStorage.getItem('seeded')) { localStorage.setItem('logic-quest-save', s); sessionStorage.setItem('seeded', '1') }
-  }, seed({ 'sw-1-r1': done, 'sw-2-r1': done }))
+  }, seed(Object.fromEntries(switchingWorld.stages.filter(s => s.order <= 2).flatMap(s => s.rooms.map(r => [r.id, done])))))
   await page.goto('/#/world/switching/stage/sw-3-boolean')
   await page.getByTestId('room-row').filter({ hasText: 'מחבר למחצה מ-NAND' }).click()
   await expect(page.getByRole('heading', { name: 'מחבר למחצה מ-NAND' })).toBeVisible()

@@ -6,7 +6,8 @@ import { emptySave } from '../../src/game/progress'
 import type { Card } from '../../src/content/types'
 
 const save = emptySave()
-for (const r of ['sw-1-r1', 'sw-2-r1', 'sw-3-r1']) save.rooms[r] = { solved: true, optimal: false, noHints: false }
+// unlock stage 4: solve every room of stages 1–3 (a stage opens at 60% of the previous one)
+for (const s of switchingWorld.stages.filter(s => s.order <= 3)) for (const r of s.rooms) save.rooms[r.id] = { solved: true, optimal: false, noHints: false }
 const deck = startRun(buildDeck(switchingWorld, 'sw-4-minimize', save)!, mulberry32(1)).deck
 
 test.beforeEach(async ({ page }) => {
