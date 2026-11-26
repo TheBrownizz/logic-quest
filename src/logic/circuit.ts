@@ -42,6 +42,34 @@ function getChip(node: Node, chips: Chips): Chip {
   return chip
 }
 
+/** Looks up a chip and guards against chips that contain themselves. */
+function enterChip(node: Node, chips: Chips, stack: string[]): Chip {
+  const chip = getChip(node, chips)
+  if (stack.includes(chip.name)) {
+    throw new Error(`Chip cycle: ${[...stack, chip.name].join(' -> ')}`)
+  }
+  return chip
+}
+
+function outputPinCount(nd: Node, chips: Chips): number {
+  if (nd.kind === 'OUT') return 0
+  if (isChip(nd.kind)) return getChip(nd, chips).outputs.length
+  return 1
+}
+
+function checkChipLabels(chip: Chip): void {
+  const labels = (kind: 'IN' | 'OUT') =>
+    new Set(chip.circuit.nodes.filter(nd => nd.kind === kind).map(nd => nd.label ?? nd.id))
+  const ins = labels('IN')
+  const outs = labels('OUT')
+  for (const name of chip.inputs) {
+    if (!ins.has(name)) throw new Error(`Chip ${chip.name}: no inner IN named ${name}`)
+  }
+  for (const name of chip.outputs) {
+    if (!outs.has(name)) throw new Error(`Chip ${chip.name}: no inner OUT named ${name}`)
+  }
+}
+
 interface Analysis {
   /** Reachable nodes, sources first. */
   order: Node[]
@@ -55,6 +83,10 @@ function analyze(c: Circuit, chips: Chips): Analysis | { error: CircuitError } {
   for (const wire of c.wires) {
     if (!byId.has(wire.from.node) || !byId.has(wire.to.node)) {
       throw new Error(`Wire references unknown node: ${wire.from.node} -> ${wire.to.node}`)
+    }
+    const src = byId.get(wire.from.node)!
+    if (!Number.isInteger(wire.from.pin) || wire.from.pin < 0 || wire.from.pin >= outputPinCount(src, chips)) {
+      throw new Error(`Wire from ${wire.from.node} uses missing output pin ${wire.from.pin}`)
     }
     const list = incoming.get(wire.to.node) ?? []
     if (list.some(o => o.to.pin === wire.to.pin)) {
@@ -91,8 +123,8 @@ function analyze(c: Circuit, chips: Chips): Analysis | { error: CircuitError } {
     const count = wires.length
     const ok = need === 'gate'
       ? count >= 2 && maxPin === count - 1
-      : count === need && maxPin === need - 1 && wires.every(x => x.to.pin >= 0)
-    if (!ok) {
+      : count === need && maxPin === need - 1
+    if (!ok || !wires.every(x => Number.isInteger(x.to.pin) && x.to.pin >= 0)) {
       err = { kind: 'unconnected', nodeId: nd.id }
       return
     }
@@ -129,6 +161,7 @@ export function simulate(
   c: Circuit,
   inputs: Record<string, Bit>,
   chips: Chips = {},
+  stack: string[] = [],
 ): { outputs: Record<string, Bit> } | { error: CircuitError } {
   const a = analyze(c, chips)
   if ('error' in a) return a
@@ -137,15 +170,19 @@ export function simulate(
   for (const nd of a.order) {
     const ins = (a.inputs.get(nd.id) ?? []).map(x => vals.get(x.from.node)![x.from.pin])
     if (nd.kind === 'IN') {
-      vals.set(nd.id, [inputs[nd.label ?? nd.id] ?? 0])
+      const name = nd.label ?? nd.id
+      const v = inputs[name]
+      if (v === undefined) throw new Error(`Missing input value: ${name}`)
+      vals.set(nd.id, [v])
     } else if (nd.kind === 'OUT') {
       vals.set(nd.id, [ins[0]])
       outputs[nd.label ?? nd.id] = ins[0]
     } else if (isChip(nd.kind)) {
-      const chip = getChip(nd, chips)
+      const chip = enterChip(nd, chips, stack)
+      checkChipLabels(chip)
       const arg: Record<string, Bit> = {}
       chip.inputs.forEach((name, i) => { arg[name] = ins[i] })
-      const r = simulate(chip.circuit, arg, chips)
+      const r = simulate(chip.circuit, arg, chips, [...stack, chip.name])
       if ('error' in r) return { error: { kind: r.error.kind, nodeId: nd.id } }
       vals.set(nd.id, chip.outputs.map(name => r.outputs[name]))
     } else {
@@ -174,30 +211,30 @@ export function circuitTruthTable(
   return { inputs: ins, outputs: outs, rows }
 }
 
-export function gateCount(c: Circuit, chips: Chips = {}): number {
+export function gateCount(c: Circuit, chips: Chips = {}, stack: string[] = []): number {
   let total = 0
   for (const nd of c.nodes) {
     if (nd.kind === 'IN' || nd.kind === 'OUT') continue
-    total += isChip(nd.kind) ? gateCount(getChip(nd, chips).circuit, chips) : 1
+    total += isChip(nd.kind) ? gateCount(enterChip(nd, chips, stack).circuit, chips, [...stack, (nd.kind as { chip: string }).chip]) : 1
   }
   return total
 }
 
-export function usesOnly(c: Circuit, allowed: GateKind[], chips: Chips = {}): boolean {
+export function usesOnly(c: Circuit, allowed: GateKind[], chips: Chips = {}, stack: string[] = []): boolean {
   for (const nd of c.nodes) {
     if (nd.kind === 'IN' || nd.kind === 'OUT') continue
     if (isChip(nd.kind)) {
-      if (!usesOnly(getChip(nd, chips).circuit, allowed, chips)) return false
+      if (!usesOnly(enterChip(nd, chips, stack).circuit, allowed, chips, [...stack, (nd.kind as { chip: string }).chip])) return false
     } else if (!allowed.includes(nd.kind)) return false
   }
   return true
 }
 
-function nodeDelay(nd: Node, chips: Chips): number {
+function nodeDelay(nd: Node, chips: Chips, stack: string[]): number {
   if (nd.delay !== undefined) return nd.delay
   if (isChip(nd.kind)) {
-    const chip = getChip(nd, chips)
-    const at = arrivalTimes(chip.circuit, chips)
+    const chip = enterChip(nd, chips, stack)
+    const at = arrivalTimes(chip.circuit, chips, [...stack, chip.name])
     let max = 0
     for (const o of chip.circuit.nodes) if (o.kind === 'OUT') max = Math.max(max, at[o.id] ?? 0)
     return max
@@ -212,19 +249,20 @@ function mustAnalyze(c: Circuit, chips: Chips): Analysis {
 }
 
 /** Worst-case arrival per node. Throws on an invalid circuit. */
-export function arrivalTimes(c: Circuit, chips: Chips = {}): Record<string, number> {
+export function arrivalTimes(c: Circuit, chips: Chips = {}, stack: string[] = []): Record<string, number> {
   const a = mustAnalyze(c, chips)
   const at: Record<string, number> = {}
   for (const nd of c.nodes) if (nd.kind === 'IN') at[nd.id] = 0
   for (const nd of a.order) {
     const ws = a.inputs.get(nd.id) ?? []
-    at[nd.id] = ws.reduce((m, x) => Math.max(m, at[x.from.node]), 0) + nodeDelay(nd, chips)
+    at[nd.id] = ws.reduce((m, x) => Math.max(m, at[x.from.node]), 0) + nodeDelay(nd, chips, stack)
   }
   return at
 }
 
 /** Node ids from an IN node to `outputNodeId`, following the max-arrival predecessor. */
 export function criticalPath(c: Circuit, outputNodeId: string, chips: Chips = {}): string[] {
+  if (!c.nodes.some(nd => nd.id === outputNodeId)) throw new Error(`Unknown node: ${outputNodeId}`)
   const a = mustAnalyze(c, chips)
   const at = arrivalTimes(c, chips)
   const path = [outputNodeId]

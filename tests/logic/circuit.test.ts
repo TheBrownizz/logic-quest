@@ -187,4 +187,62 @@ describe('circuit', () => {
     const p = criticalPath(adderSub(), 'OV', chips)
     expect(p).toEqual(['B0', 'X0', 'F0', 'F1', 'F2', 'F3', 'V', 'OV'])
   })
+
+  describe('guards', () => {
+    const wrap = (name: string, inner: string): Chip => ({
+      name, inputs: ['A'], outputs: ['Q'],
+      circuit: { nodes: [inp('A'), n('c', { chip: inner }), out('Q')], wires: [w('A', 'c'), w('c', 'Q')] },
+    })
+    const top: Circuit = { nodes: [inp('A'), n('c', { chip: 'P' }), out('Q')], wires: [w('A', 'c'), w('c', 'Q')] }
+
+    it('direct chip cycle throws', () => {
+      const cs = { P: wrap('P', 'P') }
+      expect(() => simulate(top, { A: 0 }, cs)).toThrow(/Chip cycle: P -> P/)
+      expect(() => gateCount(top, cs)).toThrow(/Chip cycle/)
+      expect(() => usesOnly(top, ['AND'], cs)).toThrow(/Chip cycle/)
+      expect(() => arrivalTimes(top, cs)).toThrow(/Chip cycle/)
+    })
+
+    it('mutual chip cycle throws', () => {
+      const cs = { P: wrap('P', 'R'), R: wrap('R', 'P') }
+      expect(() => simulate(top, { A: 0 }, cs)).toThrow(/Chip cycle: P -> R -> P/)
+      expect(() => gateCount(top, cs)).toThrow(/Chip cycle/)
+      expect(() => usesOnly(top, ['AND'], cs)).toThrow(/Chip cycle/)
+      expect(() => arrivalTimes(top, cs)).toThrow(/Chip cycle/)
+    })
+
+    it('missing top-level input throws', () => {
+      expect(() => simulate(halfAdderNand(), { A: 1 })).toThrow(/B/)
+    })
+
+    it('chip input/output names must match inner IN/OUT', () => {
+      const badIn: Chip = { ...halfAdderChip, inputs: ['A', 'Z'] }
+      const c: Circuit = {
+        nodes: [inp('A'), inp('B'), n('h', { chip: 'HA' }), out('S')],
+        wires: [w('A', 'h', 0), w('B', 'h', 1), w('h', 'S', 0, 1)],
+      }
+      expect(() => simulate(c, { A: 1, B: 1 }, { HA: badIn })).toThrow()
+      const badOut: Chip = { ...halfAdderChip, outputs: ['C', 'Z'] }
+      expect(() => simulate(c, { A: 1, B: 1 }, { HA: badOut })).toThrow()
+    })
+
+    it('out-of-range from.pin throws', () => {
+      const c: Circuit = {
+        nodes: [inp('A'), n('g', 'NOT'), out('Q')],
+        wires: [w('A', 'g', 0, 1), w('g', 'Q')],
+      }
+      expect(() => simulate(c, { A: 0 })).toThrow()
+    })
+
+    it('negative or fractional to.pin is unconnected', () => {
+      const neg: Circuit = { nodes: [inp('A'), n('g', 'NOT'), out('Q')], wires: [w('A', 'g', -1), w('g', 'Q')] }
+      expect(simulate(neg, { A: 0 })).toMatchObject({ error: { kind: 'unconnected' } })
+      const frac: Circuit = { nodes: [inp('A'), n('g', 'NOT'), out('Q')], wires: [w('A', 'g', 0.5), w('g', 'Q')] }
+      expect(simulate(frac, { A: 0 })).toMatchObject({ error: { kind: 'unconnected' } })
+    })
+
+    it('criticalPath on unknown node throws', () => {
+      expect(() => criticalPath(halfAdderNand(), 'nope')).toThrow()
+    })
+  })
 })
