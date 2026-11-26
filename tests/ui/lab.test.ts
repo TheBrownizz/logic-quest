@@ -7,6 +7,8 @@ import {
   mergeResult, needsLayout, nextNodeId, refersToChip, usableDraft,
 } from '../../src/ui/lab/labLogic'
 import { parseHash } from '../../src/ui/router'
+import { checkCode, checkNumber, dragSelection } from '../../src/ui/lab/labLogic'
+import { groupToTerm } from '../../src/logic/kmap'
 
 const ha = stage3.rooms[0].puzzle as Extract<LabPuzzle, { type: 'circuit' }>
 
@@ -145,7 +147,6 @@ describe('lab logic', () => {
   })
 })
 
-import { checkCode, checkNumber, dragSelection } from '../../src/ui/lab/labLogic'
 
 describe('number and code checks', () => {
   it('exact normalises spaces and case', () => {
@@ -157,6 +158,9 @@ describe('number and code checks', () => {
     expect(checkNumber('numeric', '0.50', '0.5')).toBe(true)
     expect(checkNumber('numeric', 'abc', '0.5')).toBe(false)
     expect(checkNumber('numeric', '', '0')).toBe(false)
+    expect(checkNumber('numeric', '0x10', '16')).toBe(false)
+    expect(checkNumber('numeric', '12abc', '12')).toBe(false)
+    expect(checkNumber('numeric', ' 12 ', '12')).toBe(true)
   })
   it('code room checks every input against encode (inline fixture)', () => {
     const encode = (b: string) => b.split('').reverse().join('')
@@ -168,10 +172,14 @@ describe('number and code checks', () => {
   })
 })
 
-describe('k-map drag selection', () => {
-  it('plain drag is the rectangle; shift wraps through the edge', () => {
-    expect(dragSelection([0, 0], [1, 2], 4, 4, false)).toEqual({ rows: [0, 1], cols: [0, 1, 2] })
-    expect(dragSelection([0, 0], [3, 3], 4, 4, true)).toEqual({ rows: [3, 0], cols: [3, 0] })
-    expect(dragSelection([2, 1], [2, 1], 4, 4, true)).toEqual({ rows: [2], cols: [1] })
+describe('k-map selection', () => {
+  it('a plain drag is the rectangle between the cells', () => {
+    expect(dragSelection([0, 0], [1, 2])).toEqual({ rows: [0, 1], cols: [0, 1, 2] })
+    expect(dragSelection([3, 3], [2, 1])).toEqual({ rows: [2, 3], cols: [1, 2, 3] })
+  })
+  it('a 2x2 group across the left/right edge is a valid group of B\'D\'-style cells', () => {
+    const t = groupToTerm(4, { cells: [[0, 0], [1, 0], [0, 3], [1, 3]] })
+    expect(t).not.toBeNull()
+    expect(groupToTerm(4, { cells: [[0, 0], [1, 0], [0, 3], [2, 3]] })).toBeNull()
   })
 })

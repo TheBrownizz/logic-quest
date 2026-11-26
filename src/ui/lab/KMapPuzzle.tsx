@@ -47,7 +47,9 @@ export function KMapPuzzle({ room, puzzle }: { room: Room; puzzle: KMapPz }) {
   const [hintsShown, setHintsShown] = useState(0)
   const [groups, setGroups] = useState<KGroup[]>([])
   const [verdict, setVerdict] = useState<Verdict | null>(null)
-  const [drag, setDrag] = useState<{ start: Cell; cur: Cell; shift: boolean } | null>(null)
+  const [drag, setDrag] = useState<{ start: Cell; cur: Cell } | null>(null)
+  const [pick, setPick] = useState(false)
+  const [picked, setPicked] = useState<string[]>([])
   const dragRef = useRef(drag)
   dragRef.current = drag
 
@@ -56,29 +58,29 @@ export function KMapPuzzle({ room, puzzle }: { room: Room; puzzle: KMapPz }) {
     return el ? [Number(el.dataset.r), Number(el.dataset.c)] : null
   }
 
-  const preview = drag ? dragSelection(drag.start, drag.cur, L.rows, L.cols, drag.shift) : null
+  const preview = drag ? dragSelection(drag.start, drag.cur) : null
 
   const onDown = (e: PointerEvent) => {
     const c = cellOf(e.target)
-    if (!c || e.button !== 0) return
-    setDrag({ start: c, cur: c, shift: e.shiftKey })
+    if (pick || !c || e.button !== 0) return
+    setDrag({ start: c, cur: c })
   }
   const onMove = (e: PointerEvent) => {
     const d = dragRef.current
     if (!d) return
     const c = cellOf(e.target) ?? d.cur
-    if (c !== d.cur && (c[0] !== d.cur[0] || c[1] !== d.cur[1]) || e.shiftKey !== d.shift) setDrag({ ...d, cur: c, shift: e.shiftKey })
+    if (c[0] !== d.cur[0] || c[1] !== d.cur[1]) setDrag({ ...d, cur: c })
   }
 
   // The release can happen anywhere, so listen on the window while dragging.
   const active = drag !== null
   useEffect(() => {
     if (!active) return
-    const up = (e: globalThis.PointerEvent) => {
+    const up = () => {
       const d = dragRef.current
       setDrag(null)
       if (!d) return
-      const sel = dragSelection(d.start, d.cur, L.rows, L.cols, e.shiftKey)
+      const sel = dragSelection(d.start, d.cur)
       setGroups(gs => {
         if (gs.some(g => sameSel(g, sel))) return gs
         const used = new Set(gs.map(g => g.color))
@@ -108,6 +110,38 @@ export function KMapPuzzle({ room, puzzle }: { room: Room; puzzle: KMapPz }) {
     setVerdict({ kind: 'ok', minimal: cover.isMinimal, result })
   }
 
+  const key = (r: number, c: number) => `${r},${c}`
+  const toggle = (r: number, c: number) => {
+    setPicked(p => (p.includes(key(r, c)) ? p.filter(k => k !== key(r, c)) : [...p, key(r, c)]))
+    setVerdict(null)
+  }
+  const leavePick = () => { setPick(false); setPicked([]) }
+  const commit = () => {
+    const cells = picked.map(k => k.split(',').map(Number) as Cell)
+    if (cells.length === 0) return
+    if (!groupToTerm(nVars, { cells })) { setVerdict({ kind: 'bad', text: 'קבוצה לא חוקית' }); return }
+    const sel: Sel = { rows: [...new Set(cells.map(c => c[0]))], cols: [...new Set(cells.map(c => c[1]))] }
+    setGroups(gs => {
+      if (gs.some(g => sameSel(g, sel))) return gs
+      const used = new Set(gs.map(g => g.color))
+      let color = 0
+      while (used.has(color) && color < COLORS - 1) color++
+      if (used.has(color)) color = gs.length % COLORS
+      return [...gs, { ...sel, color }]
+    })
+    setPicked([])
+    setVerdict(null)
+  }
+  // Enter/Space on a focused cell in drag mode (no pointer) makes a one-cell group
+  const onCellClick = (r: number, c: number, detail: number) => {
+    if (pick) toggle(r, c)
+    else if (detail === 0) {
+      const sel: Sel = { rows: [r], cols: [c] }
+      setGroups(gs => (gs.some(g => sameSel(g, sel)) ? gs : [...gs, { ...sel, color: gs.length % COLORS }]))
+      setVerdict(null)
+    }
+  }
+
   const remove = (i: number) => { setGroups(gs => gs.filter((_, j) => j !== i)); setVerdict(null) }
   const locked = verdict?.kind === 'ok' && verdict.minimal
 
@@ -125,8 +159,8 @@ export function KMapPuzzle({ room, puzzle }: { room: Room; puzzle: KMapPz }) {
   return (
     <div className="lab-body">
       <p className="muted kmap-hint" data-testid="kmap-hint">
-        גררו בין שני תאים כדי לסמן קבוצה. כדי לעטוף דרך קצה המפה (למשל ארבע הפינות) החזיקו <kbd>Shift</kbd> בזמן הגרירה.
-        לחיצה על קבוצה ברשימה מוחקת אותה.
+        גררו בין שני תאים כדי לסמן מלבן. לקבוצה שעוטפת את קצה המפה (למשל ארבע הפינות), או לבחירה במקלדת, הדליקו <kbd>בחירת תאים</kbd>,
+        סמנו את התאים אחד אחד (קליק, או Enter/רווח) ולחצו <kbd>קבע קבוצה</kbd>. לחיצה על קבוצה ברשימה מוחקת אותה.
       </p>
       <div className="kmap-wrap">
         <div className="kmap" dir="ltr" style={{ '--rows': L.rows, '--cols': L.cols } as React.CSSProperties}>
@@ -137,15 +171,18 @@ export function KMapPuzzle({ room, puzzle }: { room: Room; puzzle: KMapPz }) {
           <div className="khead rows mono">
             {Array.from({ length: L.rows }, (_, r) => <span key={r}>{bits(L.mintermAt(r, 0) >> cb, rb)}</span>)}
           </div>
-          <div className={`kcells${locked ? ' locked' : ''}`} onPointerDown={locked ? undefined : onDown} onPointerMove={onMove}>
+          <div className={`kcells${locked ? ' locked' : ''}${pick ? ' pick' : ''}`} onPointerDown={locked ? undefined : onDown} onPointerMove={onMove}>
             {Array.from({ length: L.rows }, (_, r) => Array.from({ length: L.cols }, (_, c) => {
               const m = L.mintermAt(r, c)
               const v = minterms.includes(m) ? '1' : dontCares.includes(m) ? 'X' : '0'
               return (
-                <div key={`${r}-${c}`} className={`kcell v${v}`} data-r={r} data-c={c} data-testid={`kcell-${r}-${c}`}>
+                <button key={`${r}-${c}`} type="button" disabled={locked}
+                  className={`kcell v${v}${picked.includes(key(r, c)) ? ' picked' : ''}`} data-r={r} data-c={c} data-testid={`kcell-${r}-${c}`}
+                  aria-pressed={pick ? picked.includes(key(r, c)) : undefined} aria-label={`תא ${m}, ערך ${v}`}
+                  onClick={e => onCellClick(r, c, e.detail)}>
                   <span className="mono">{v}</span>
                   <small className="mono">{m}</small>
-                </div>
+                </button>
               )
             }))}
             {groups.map((g, i) => <div key={i} className={`kg c${g.color}`}>{rects(g, i, '')}</div>)}
@@ -173,6 +210,12 @@ export function KMapPuzzle({ room, puzzle }: { room: Room; puzzle: KMapPz }) {
 
       <div className="lab-actions">
         <button type="button" className="btn primary" onClick={check} disabled={locked}>בדוק</button>
+        <button type="button" className={`btn ghost${pick ? ' on' : ''}`} aria-pressed={pick} disabled={locked}
+          onClick={() => (pick ? leavePick() : setPick(true))}>בחירת תאים</button>
+        {pick && <>
+          <button type="button" className="btn" onClick={commit} disabled={picked.length === 0}>קבע קבוצה</button>
+          <button type="button" className="btn ghost" onClick={() => setPicked([])} disabled={picked.length === 0}>בטל</button>
+        </>}
         <button type="button" className="btn ghost" onClick={() => { setGroups([]); setVerdict(null) }} disabled={locked || groups.length === 0}>נקה</button>
       </div>
 

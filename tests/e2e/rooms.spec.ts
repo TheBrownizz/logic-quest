@@ -1,25 +1,21 @@
 import { test, expect, type Page } from '@playwright/test'
 
-async function drag(page: Page, from: [number, number], to: [number, number], shift = false) {
-  const a = (await page.getByTestId(`kcell-${from[0]}-${from[1]}`).boundingBox())!
-  const b = (await page.getByTestId(`kcell-${to[0]}-${to[1]}`).boundingBox())!
-  if (shift) await page.keyboard.down('Shift')
-  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2)
-  await page.mouse.down()
-  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 6 })
-  await page.mouse.up()
-  if (shift) await page.keyboard.up('Shift')
+async function pickGroup(page: Page, cells: Array<[number, number]>) {
+  const toggle = page.getByRole('button', { name: 'בחירת תאים' })
+  if ((await toggle.getAttribute('aria-pressed')) !== 'true') await toggle.click()
+  for (const [r, c] of cells) await page.getByTestId(`kcell-${r}-${c}`).click()
+  await page.getByRole('button', { name: 'קבע קבוצה' }).click()
 }
 
 test('k-map: four corners need one wrap group', async ({ page }) => {
   await page.goto('/#/room/sw-4-r1')
-  await expect(page.getByTestId('kmap-hint')).toContainText('Shift')
+  await expect(page.getByTestId('kmap-hint')).toContainText('בחירת תאים')
   // two wrap groups (a valid but wasteful cover)
-  await drag(page, [0, 0], [0, 3], true)
+  await pickGroup(page, [[0, 0], [0, 3]])
   await expect(page.getByTestId('kmap-group')).toHaveCount(1)
   await page.getByRole('button', { name: 'בדוק' }).click()
   await expect(page.getByRole('alert')).toHaveText('לא כיסית את כל ה-1')
-  await drag(page, [3, 0], [3, 3], true)
+  await pickGroup(page, [[3, 0], [3, 3]])
   await expect(page.getByTestId('kmap-group')).toHaveCount(2)
   await page.getByRole('button', { name: 'בדוק' }).click()
   await expect(page.getByRole('status')).toContainText('נכון – אבל אפשר עם פחות ליטרלים')
@@ -27,7 +23,7 @@ test('k-map: four corners need one wrap group', async ({ page }) => {
   await page.getByTestId('kmap-group').first().click()
   await page.getByTestId('kmap-group').first().click()
   await expect(page.getByTestId('kmap-group')).toHaveCount(0)
-  await drag(page, [0, 0], [3, 3], true)
+  await pickGroup(page, [[0, 0], [0, 3], [3, 0], [3, 3]])
   await expect(page.getByTestId('kmap-expr')).toHaveText("f = B'D'")
   await page.getByRole('button', { name: 'בדוק' }).click()
   await expect(page.getByRole('status')).toContainText('נכון!')
@@ -36,7 +32,8 @@ test('k-map: four corners need one wrap group', async ({ page }) => {
 
 test('k-map: grabbing a zero is flagged', async ({ page }) => {
   await page.goto('/#/room/sw-4-r1')
-  await page.getByTestId('kcell-1-1').click()
+  await page.getByTestId('kcell-1-1').focus()
+  await page.keyboard.press('Enter')
   await page.getByRole('button', { name: 'בדוק' }).click()
   await expect(page.getByRole('alert')).toHaveText('תפסת 0')
 })
@@ -67,4 +64,22 @@ test('number room: reveal after 3 misses costs the no-hints star', async ({ page
   await input.fill('10110101')
   await page.getByRole('button', { name: 'בדוק' }).click()
   await expect(page.getByTestId('result-stars')).toHaveAttribute('aria-label', '2 מתוך 3 כוכבים')
+})
+
+test('k-map: plain drag makes a rectangle; 2x2 across the left/right edge is accepted; bad selection is rejected', async ({ page }) => {
+  await page.goto('/#/room/sw-4-r1')
+  const a = (await page.getByTestId('kcell-0-1').boundingBox())!
+  const b = (await page.getByTestId('kcell-1-2').boundingBox())!
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 4 })
+  await page.mouse.up()
+  await expect(page.getByTestId('kmap-group')).toHaveCount(1)
+  await page.getByTestId('kmap-group').click()
+  await pickGroup(page, [[0, 0], [1, 0], [0, 3], [1, 3]])
+  await expect(page.getByTestId('kmap-group')).toHaveCount(1)
+  await expect(page.getByTestId('kmap-group')).not.toHaveClass(/invalid/)
+  await pickGroup(page, [[0, 1], [0, 2], [3, 3]])
+  await expect(page.getByRole('alert')).toHaveText('קבוצה לא חוקית')
+  await expect(page.getByTestId('kmap-group')).toHaveCount(1)
 })

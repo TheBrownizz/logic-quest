@@ -189,7 +189,7 @@ kbd { font-family: var(--font-mono); font-size: .85em; padding: 1px 7px; border:
   background: var(--bg);
 }
 .kcells.locked { cursor: default; }
-.kcell { position: relative; display: flex; align-items: center; justify-content: center; border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+.kcell { font: inherit; color: inherit; background: transparent; padding: 0; border-radius: 0; cursor: inherit; position: relative; display: flex; align-items: center; justify-content: center; border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
 .kcell span.mono { font-size: 1.5rem; font-weight: 700; }
 .kcell small { position: absolute; top: 3px; inset-inline-end: 6px; font-size: .62rem; color: var(--zero); }
 .kcell.v1 span.mono { color: var(--one); text-shadow: 0 0 10px var(--one-glow); }
@@ -239,3 +239,8 @@ kbd { font-family: var(--font-mono); font-size: .85em; padding: 1px 7px; border:
 .code-in { min-width: 9ch; text-align: end; font-size: 1.3rem; font-weight: 700; color: var(--one); }
 .code-ans { color: var(--amber); font-size: 1.1rem; }
 .code-q .btn.primary { margin-top: 6px; }
+
+.kcell:focus-visible { outline: 2px solid var(--amber); outline-offset: -3px; border-radius: 8px; }
+.kcell.picked { background: color-mix(in srgb, var(--amber) 28%, transparent); box-shadow: inset 0 0 0 2px var(--amber); }
+.kcells.pick .kcell { cursor: pointer; }
+.btn.on { border-color: var(--amber); color: var(--amber); box-shadow: 0 0 12px var(--amber-glow); }

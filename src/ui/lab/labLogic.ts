@@ -245,9 +245,10 @@ const normalise = (s: string) => s.replace(/\s+/g, '').toUpperCase()
 /** 'exact' ignores spaces and case; 'numeric' compares values (tolerance 1e-9). */
 export function checkNumber(mode: 'exact' | 'numeric', given: string, answer: string): boolean {
   if (mode === 'exact') return normalise(given) === normalise(answer)
-  if (given.trim() === '') return false
-  const a = parseFloat(given)
-  const b = parseFloat(answer)
+  // plain decimal notation only: no hex, no trailing junk, no empty string
+  if (!/^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(given.trim())) return false
+  const a = Number(given.trim())
+  const b = Number(answer.trim())
   return Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) <= 1e-9
 }
 
@@ -256,20 +257,12 @@ export function checkCode(encode: (bits: string) => string, inputs: string[], gi
   return inputs.map((inp, i) => normalise(given[i] ?? '') === normalise(encode(inp)))
 }
 
-/**
- * Rows and columns picked by dragging between two cells. A plain drag is the rectangle between them;
- * with `wrap` each axis runs the other way round, through the edge (hi..last, 0..lo).
- */
-export function dragSelection(a: [number, number], b: [number, number], rows: number, cols: number, wrap: boolean): { rows: number[]; cols: number[] } {
-  const axis = (x: number, y: number, n: number) => {
-    const lo = Math.min(x, y)
-    const hi = Math.max(x, y)
+/** Rows and columns of the rectangle between two cells (a plain, non-wrapping drag). */
+export function dragSelection(a: [number, number], b: [number, number]): { rows: number[]; cols: number[] } {
+  const axis = (x: number, y: number) => {
     const out: number[] = []
-    if (wrap && lo !== hi) {
-      for (let i = hi; i < n; i++) out.push(i)
-      for (let i = 0; i <= lo; i++) out.push(i)
-    } else for (let i = lo; i <= hi; i++) out.push(i)
+    for (let i = Math.min(x, y); i <= Math.max(x, y); i++) out.push(i)
     return out
   }
-  return { rows: axis(a[0], b[0], rows), cols: axis(a[1], b[1], cols) }
+  return { rows: axis(a[0], b[0]), cols: axis(a[1], b[1]) }
 }
