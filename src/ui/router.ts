@@ -11,7 +11,7 @@ export type Route =
 
 export function parseHash(hash: string): Route {
   let parts: string[]
-  try { parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent) }
+  try { parts = hash.replace(/^#\/?/, '').replace(/\?.*$/, '').split('/').filter(Boolean).map(decodeURIComponent) }
   catch { return { name: 'notfound' } }
   const [a, b, c, d] = parts
   if (parts.length === 0) return { name: 'map' }

@@ -145,7 +145,7 @@ function analyze(c: Circuit, chips: Chips): Analysis | { error: CircuitError } {
   return { order, inputs: pinsOf }
 }
 
-function evalGate(kind: GateKind, ins: Bit[]): Bit {
+export function evalGate(kind: GateKind, ins: Bit[]): Bit {
   switch (kind) {
     case 'NOT': return ins[0] ? 0 : 1
     case 'AND': return ins.every(b => b === 1) ? 1 : 0

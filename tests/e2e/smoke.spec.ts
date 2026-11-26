@@ -31,3 +31,22 @@ test('save menu opens, placeholder routes', async ({ page }) => {
   await page.goto('/#/collection')
   await expect(page.getByText('בבנייה')).toBeVisible()
 })
+
+const seed = (rooms: Record<string, { solved: boolean; optimal: boolean; noHints: boolean }>) =>
+  JSON.stringify({ version: 1, rooms, chips: {}, drafts: {}, knowledge: [], bestRun: {}, flagged: [] })
+
+test('NAND half adder room: autofill, check, stars on the stage screen', async ({ page }) => {
+  const done = { solved: true, optimal: true, noHints: true }
+  await page.addInitScript(s => {
+    if (!sessionStorage.getItem('seeded')) { localStorage.setItem('logic-quest-save', s); sessionStorage.setItem('seeded', '1') }
+  }, seed({ 'sw-1-r1': done, 'sw-2-r1': done }))
+  await page.goto('/#/world/switching/stage/sw-3-boolean')
+  await page.getByTestId('room-row').filter({ hasText: 'מחבר למחצה מ-NAND' }).click()
+  await expect(page.getByRole('heading', { name: 'מחבר למחצה מ-NAND' })).toBeVisible()
+  await page.goto('/?autofill=1#/room/sw-3-r1')
+  await page.getByRole('button', { name: 'בדוק' }).click()
+  await expect(page.getByText('נכון!')).toBeVisible()
+  await expect(page.getByTestId('result-stars')).toHaveAttribute('aria-label', /^[123] מתוך 3/)
+  await page.getByRole('link', { name: /אלגברה בוליאנית ושערים/ }).click()
+  await expect(page.getByTestId('room-row').filter({ hasText: 'מחבר למחצה מ-NAND' })).toContainText('★')
+})
