@@ -42,6 +42,6 @@ export const stage3: Stage = {
     correctReason: 0,
     examReason: 'NAND נותן NOT ו-AND, ואלה מספיקים לכל פונקציה.',
     knowledge: 'NAND ו-NOR הם שערים אוניברסליים: כל פונקציה בוליאנית ניתנת למימוש בהם בלבד.',
-    source: 'מנו, פרק 3',
+    source: 'סילבוס: אלגברת מיתוג בוליאנית',
   }],
 }

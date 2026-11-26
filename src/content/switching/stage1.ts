@@ -17,6 +17,6 @@ export const stage1: Stage = {
     correctReason: 0,
     examReason: 'כל ספרה נבחרת בנפרד מ-r אפשרויות, ולכן מכפילים n פעמים.',
     knowledge: 'n ספרות בבסיס r נותנות r^n צירופים, מ-0 עד r^n - 1.',
-    source: 'מנו, פרק 1',
+    source: 'סילבוס: ייצוג מספרים ובסיסי ספירה',
   }],
 }
