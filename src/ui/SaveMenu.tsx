@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { emptySave } from '../game/progress'
 import { useSave, useSaveStore } from './save'
 
@@ -7,6 +7,14 @@ export function SaveMenu({ onClose }: { onClose: () => void }) {
   const { store, reload } = useSaveStore()
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const file = useRef<HTMLInputElement>(null)
+  const panel = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    panel.current?.focus()
+    const on = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', on)
+    return () => window.removeEventListener('keydown', on)
+  }, [onClose])
 
   const doExport = () => {
     const blob = new Blob([store.exportJSON()], { type: 'application/json' })
@@ -41,7 +49,7 @@ export function SaveMenu({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="overlay" onClick={onClose}>
-      <div className="panel" role="dialog" aria-label="שמירה" onClick={e => e.stopPropagation()}>
+      <div className="panel" ref={panel} tabIndex={-1} role="dialog" aria-modal="true" aria-label="שמירה" onClick={e => e.stopPropagation()}>
         <h2>שמירה</h2>
         <p className="muted">ההתקדמות נשמרת בדפדפן. אפשר לייצא קובץ גיבוי ולטעון אותו במכשיר אחר.</p>
         <div className="row">

@@ -10,7 +10,9 @@ export type Route =
   | { name: 'notfound' }
 
 export function parseHash(hash: string): Route {
-  const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent)
+  let parts: string[]
+  try { parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent) }
+  catch { return { name: 'notfound' } }
   const [a, b, c, d] = parts
   if (parts.length === 0) return { name: 'map' }
   if (a === 'world' && b && parts.length === 2) return { name: 'world', worldId: b }

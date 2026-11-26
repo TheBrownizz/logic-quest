@@ -104,8 +104,8 @@ a.world-card:hover, a.world-card:focus-visible { transform: translateY(-4px); bo
 
 .path { list-style: none; margin: 32px 0 0; padding: 0; position: relative; }
 .path li { position: relative; padding-block: 14px; }
-.path li:not(:last-child)::after {
-  content: ''; position: absolute; inset-inline-start: 46px; top: 70px; bottom: -14px; width: 3px;
+.path li:not(:last-child) .node::after {
+  content: ''; position: absolute; inset-inline-start: calc(50% - 1.5px); top: calc(100% + 3px); height: 50px; width: 3px;
   background: linear-gradient(var(--one), var(--zero)); opacity: .6; border-radius: 3px;
 }
 .stage-node {
@@ -116,7 +116,7 @@ a.world-card:hover, a.world-card:focus-visible { transform: translateY(-4px); bo
 a.stage-node:hover, a.stage-node:focus-visible { transform: translateX(-4px); border-color: var(--amber); box-shadow: 0 0 22px var(--amber-glow); }
 .node {
   flex: none; width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center;
-  font-weight: 700; font-size: 1.3rem; color: var(--one);
+  position: relative; font-weight: 700; font-size: 1.3rem; color: var(--one);
   border: 3px solid var(--one); background: var(--bg); box-shadow: 0 0 16px var(--one-glow);
 }
 .stage-node.locked { opacity: .6; border-style: dashed; cursor: not-allowed; }
@@ -148,3 +148,4 @@ a.stage-node:hover, a.stage-node:focus-visible { transform: translateX(-4px); bo
 .ok { color: var(--one); }
 .err { color: var(--danger); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+.panel:focus { outline: none; }
