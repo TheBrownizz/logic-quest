@@ -5,7 +5,7 @@
  * with `m` set, each B input first passes an XOR (`delays.xor` ns) and M is also the carry in (M itself is ideal, 0 ns).
  * So stage i starts when both its B input and its carry in are ready, and finishes `fa` ns later; its sum and its
  * carry out are ready then. These are worst-case arrival times, the same numbers `arrivalTimes` computes for the
- * equivalent circuit (tests/ui/widgets/ripple.test.ts compares them).
+ * equivalent circuit (tests/ui/widgets/rippleTimeline.test.ts compares them).
  *
  * Pure: no DOM, so the lesson validator can run it in node.
  */
@@ -50,6 +50,7 @@ export function checkConfig(c: RippleTimelineConfig): number {
   if (!/^[01]+$/.test(c.a) || !/^[01]+$/.test(c.b)) throw new RangeError('a and b must be 0/1 strings')
   const ok = (x: number) => Number.isFinite(x) && x >= 0
   if (!ok(c.delays.fa) || c.delays.fa <= 0) throw new RangeError('fa delay must be positive')
+  if ((c.m !== undefined || c.overflow) && c.delays.xor === undefined) throw new RangeError('an XOR delay is required with m or overflow')
   if (c.delays.xor !== undefined && !ok(c.delays.xor)) throw new RangeError('xor delay must not be negative')
   return n
 }

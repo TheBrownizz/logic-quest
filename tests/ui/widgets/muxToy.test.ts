@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { Bit } from '../../../src/logic/boolean'
 import {
-  cycleData, implementedMinterms, initial, isGoalMet, output, requiredData, selectIndex, selectNames, setSelect, setX, toggleInput, withData,
+  cycleData, goalState, implementedMinterms, initial, isGoalMet, output, requiredData, selectIndex, selectNames, setSelect, setX, toggleInput, withData,
   type DataSrc, type MuxToyConfig, type MuxToyGoal, type MuxToyState,
 } from '../../../src/ui/lessons/widgets/muxToyLogic'
 
@@ -106,5 +106,18 @@ describe('MuxToy with an extra variable: n select lines implement n+1 variables'
     expect(isGoalMet(withData(initial(ext), [0, 'x', 'x', 1], 0), g, ext)).toBe(true)
     expect(isGoalMet(withData(initial(ext), [0, 'x', 'nx', 1], 0), g, ext)).toBe(false)
     expect(isGoalMet(withData(initial(ext), [0, 1, 1, 1], 0), g, ext)).toBe(false)
+  })
+})
+
+describe('MuxToy goalState (shown when a completed step is revisited)', () => {
+  it('meets every kind of goal', () => {
+    const cases: [MuxToyConfig, MuxToyGoal][] = [
+      [route, { kind: 'route', input: 2 }],
+      [{ selectBits: 3, mode: 'route' }, { kind: 'route', input: 5 }],
+      [{ selectBits: 2, mode: 'function' }, { kind: 'implements', minterms: [1, 2] }],
+      [ext, { kind: 'implements-x', minterms: [3, 5, 6, 7] }],
+    ]
+    for (const [c, g] of cases) expect(isGoalMet(goalState(c, g), g, c), JSON.stringify(g)).toBe(true)
+    expect(goalState(route, { kind: 'route', input: 2 }).select).toEqual([1, 0])
   })
 })

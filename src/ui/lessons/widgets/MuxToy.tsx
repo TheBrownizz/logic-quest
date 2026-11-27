@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { WidgetProps } from './types'
 import {
-  cycleData, dataCount, evalSrc, implementedMinterms, initial, output, requiredData, selectIndex, selectNames, setSelect, setX, toggleInput,
+  cycleData, dataCount, goalState, evalSrc, implementedMinterms, initial, output, requiredData, selectIndex, selectNames, setSelect, setX, toggleInput,
   type DataSrc, type MuxToyConfig, type MuxToyGoal, type MuxToyState,
 } from './muxToyLogic'
 import './MuxToy.css'
@@ -12,8 +12,8 @@ const bits = (i: number, n: number) => i.toString(2).padStart(n, '0')
  * MuxToy: a multiplexer. The select lines pick one data input and its value flows to the output; the others are
  * blocked. In function mode the data inputs are the function's truth table, so setting them implements F.
  */
-export function MuxToy({ config, goal, onState, reducedMotion }: WidgetProps<MuxToyConfig, MuxToyState, MuxToyGoal>) {
-  const [s, setS] = useState<MuxToyState>(() => initial(config))
+export function MuxToy({ config, goal, onState, reducedMotion, completed }: WidgetProps<MuxToyConfig, MuxToyState, MuxToyGoal>) {
+  const [s, setS] = useState<MuxToyState>(() => (completed && goal ? goalState(config, goal) : initial(config)))
   const report = useRef(onState)
   report.current = onState
   useEffect(() => { report.current(s) }, [s])
@@ -73,7 +73,7 @@ export function MuxToy({ config, goal, onState, reducedMotion }: WidgetProps<Mux
         </div>
         <div className="mux-out" style={{ gridRow: `1 / span ${n}` }}>
           <span key={sweepKey} className={`mux-wire out v${y}`} aria-hidden />
-          <span className={`mux-lamp v${y}`} data-testid="mux-lamp" role="status" aria-label={`Y = ${y}`}>
+          <span className={`mux-lamp v${y}`} data-testid="mux-lamp" role="status" aria-label={`יציאה Y = ${y}`}>
             <b>Y</b>{y}
           </span>
         </div>
@@ -111,8 +111,8 @@ export function MuxToy({ config, goal, onState, reducedMotion }: WidgetProps<Mux
             <tr>
               <th>{names.join('')}</th>
               {target && (ext !== undefined ? <><th>{`${ext}=0`}</th><th>{`${ext}=1`}</th></> : <th>F</th>)}
-              <th>{rom ? 'cell' : 'D'}</th>
-              {target && <th aria-label="match" />}
+              <th>{rom ? 'תא' : 'D'}</th>
+              {target && <th aria-label="התאמה" />}
             </tr>
           </thead>
           <tbody>

@@ -76,9 +76,9 @@ export function RippleTimeline({ config, onState, completed, reducedMotion }: Wi
 
   return (
     <div className="rt" dir="ltr" data-testid="ripple-timeline" data-t={t} data-settled={snap.settled}>
-      <div className="rt-grid" style={{ '--cols': n + 1 } as CSSProperties} role="group" aria-label="adder">
+      <div className="rt-grid" style={{ '--cols': n + 1 } as CSSProperties} role="group" aria-label="מחבר אדווה">
         <span className="rt-lab" />
-        {cols.map(c => <span key={c} className="rt-head">{c === 'cout' ? 'Cout' : `bit ${c}`}</span>)}
+        {cols.map(c => <span key={c} className="rt-head" dir="rtl">{c === 'cout' ? 'Cout' : `ביט ${c}`}</span>)}
 
         <span className="rt-lab">A</span>
         {cols.map(c => (c === 'cout' ? <span key={c} /> : <Cell key={c} bit={vals.a[c]} ready />))}
@@ -91,7 +91,7 @@ export function RippleTimeline({ config, onState, completed, reducedMotion }: Wi
           {cols.map(c => (c === 'cout' ? <span key={c} /> : <Cell key={c} bit={vals.bx[c]} ready={snap.bReady} testId={`rt-bx-${c}`} />))}
         </>)}
 
-        <span className="rt-lab">carry</span>
+        <span className="rt-lab" dir="rtl">נשא</span>
         {cols.map(c => (c === 'cout'
           ? <Cell key={c} bit={vals.carry[n]} ready={snap.carryReady[n]} testId="rt-carry-out" />
           : <Cell key={c} bit={vals.carry[c]} ready={snap.carryReady[c]} testId={`rt-carry-${c}`} />))}
@@ -141,7 +141,7 @@ export function RippleTimeline({ config, onState, completed, reducedMotion }: Wi
           <input
             type="range" className="rt-slider" min={0} max={tm.settle} step={STEP_NS} value={t}
             data-testid="ripple-slider"
-            aria-label="time in nanoseconds"
+            aria-label="זמן בננו-שניות"
             aria-valuetext={`${t} ns`}
             onChange={e => { stop(); setT(Number(e.target.value)) }}
           />

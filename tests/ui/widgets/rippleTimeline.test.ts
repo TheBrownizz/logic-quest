@@ -139,5 +139,8 @@ describe('RippleTimeline snapshot and goal', () => {
     expect(() => timing({ a: '0a', b: '01', delays: { fa: FA } })).toThrow()
     expect(() => timing({ a: '0', b: '1', delays: { fa: FA } })).toThrow()
     expect(() => timing({ a: '01', b: '01', delays: { fa: 0 } })).toThrow()
+    expect(() => timing({ a: '01', b: '01', delays: { fa: 100 }, m: 1 })).toThrow(/XOR delay/)
+    expect(() => timing({ a: '01', b: '01', delays: { fa: 100 }, overflow: true })).toThrow(/XOR delay/)
+    expect(() => timing({ a: '01', b: '01', delays: { fa: 100, xor: 75 }, m: 0 })).not.toThrow()
   })
 })

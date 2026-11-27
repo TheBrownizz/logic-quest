@@ -124,7 +124,7 @@ const l1: Lesson = {
     },
     widgetStep({
       id: 'sub-timeline', widget: 'RippleTimeline',
-      prompt: `זה מחסר של 4 ביטים: ${ltr('5 − 3')}. כל XOR לוקח 75 ns וכל מחבר מלא 100 ns. גררו עד שכל היציאות יציבות, כולל V, שמזהה גלישה במספרים עם סימן ${ltr('(V = C₄ ⊕ C₃)')}. שימו לב מי מוכן אחרון.`,
+      prompt: `זה מחסר של 4 ביטים: ${ltr('5 − 3')}. כל XOR לוקח 75 ns וכל מחבר מלא 100 ns. גררו עד שכל היציאות יציבות, כולל V, שמזהה גלישה במספרים עם סימן ${ltr('(V = C₄ ⊕ C₃)')}. כאן ${ltr('C₄')} הוא Cout, ו-${ltr('C₃')} הוא הנשא שנכנס לביט 3. שימו לב מי מוכן אחרון.`,
       config: { a: '0101', b: '0011', delays: { fa: 100, xor: 75 }, m: 1, overflow: true },
       goal: { kind: 'settled' }, example: { t: 550 },
     }),
@@ -270,7 +270,7 @@ const l2: Lesson = {
     },
     {
       id: 'decoder', kind: 'explain', figure: 's5-decoder',
-      text: `מפענח ${ltr('(Decoder)')} עושה את ההפך מבחירה: n כניסות, ${ltr('2^n')} יציאות, ובדיוק יציאה אחת פעילה: זו של הצירוף הנוכחי. כל יציאה היא מינטרם של הכניסות. לכן אפשר לממש פונקציה כ-OR של היציאות שבהן היא 1: ${ltr('F = Σm')}.`,
+      text: `מפענח ${ltr('(Decoder)')} הופך צירוף כניסות ליציאה אחת דולקת: n כניסות, ${ltr('2^n')} יציאות, ובדיוק יציאה אחת פעילה: זו של הצירוף הנוכחי. כל יציאה היא מינטרם של הכניסות. לכן אפשר לממש פונקציה כ-OR של היציאות שבהן היא 1: ${ltr('F = Σm')}.`,
     },
     {
       id: 'decoder-or', kind: 'check',
@@ -338,7 +338,7 @@ const l3: Lesson = {
     }),
     {
       id: 'inside', kind: 'explain', figure: 's5-rom',
-      text: `בתוך ROM יש שני מישורים. מישור ה-AND הוא מפענח מלא וקבוע: הוא יוצר את כל ${ltr('2^n')} המינטרמים של הכניסות. מישור ה-OR הוא זה שמתכנתים: לכל יציאה בוחרים אילו מינטרמים מחוברים אליה. לכן התוכן שבתאים קובע איזה מינטרמים נכנסים ל-OR.`,
+      text: `בתוך ROM יש שני מישורים. מישור ה-AND הוא מפענח מלא וקבוע: הוא יוצר את כל ${ltr('2^n')} המינטרמים של הכניסות. מישור ה-OR הוא זה שמתכנתים: לכל יציאה בוחרים אילו מינטרמים מחוברים אליה. לכן התוכן שבתאים קובע אילו מינטרמים נכנסים ל-OR.`,
     },
     {
       id: 'fixed', kind: 'check',
@@ -501,7 +501,6 @@ export const figures: Figures = {
     <text x="119" y="40" font-size="15" font-weight="700" fill="var(--text)">AND</text><text x="119" y="57">fixed</text>
     <rect x="210" y="20" width="98" height="46" rx="10" fill="none" stroke="var(--amber)" stroke-width="2.5"/>
     <text x="259" y="40" font-size="15" font-weight="700" fill="var(--text)">OR</text><text x="259" y="57" fill="var(--amber)">programmable</text>
-    <path d="M48 76H0" stroke="none"/>
     <path d="M168 43H208" stroke="var(--amber)" stroke-width="2" marker-end="url(#s5a)"/>
     <text x="30" y="132" font-size="15" font-weight="700" fill="var(--text)">PLA</text>
     <rect x="70" y="106" width="98" height="46" rx="10" fill="none" stroke="var(--amber)" stroke-width="2.5"/>

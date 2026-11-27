@@ -132,6 +132,17 @@ export function requiredData(minterms: number[], selectBits: number): DataSrc[] 
 
 const sameSet = (a: number[], b: number[]) => a.length === b.length && [...a].sort((p, q) => p - q).every((v, i) => v === [...b].sort((p, q) => p - q)[i])
 
+/** A state that meets `g` (the final state a revisited, completed step shows). */
+export function goalState(c: MuxToyConfig, g: MuxToyGoal): MuxToyState {
+  const s = initial(c)
+  switch (g.kind) {
+    case 'route': return { ...s, select: s.select.map((_, k) => ((g.input >> (c.selectBits - 1 - k)) & 1) as Bit) }
+    case 'implements': return { ...s, inputs: s.inputs.map((_, i) => (g.minterms.includes(i) ? 1 : 0) as Bit) }
+    case 'implements-x': return withData(s, requiredData(g.minterms, c.selectBits), s.x ?? 0)
+    default: return s
+  }
+}
+
 export function isGoalMet(s: MuxToyState, g: MuxToyGoal, c: MuxToyConfig): boolean {
   switch (g.kind) {
     case 'route': return selectIndex(s.select) === g.input

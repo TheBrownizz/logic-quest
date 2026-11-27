@@ -48,14 +48,14 @@ test('5.2: route D2 to the output with the select lines, then go on', async ({ p
   await seed(page, atStep(lesson.id, 'route'))
   await page.goto(`/#/lesson/${lesson.id}/route`)
   const box = page.getByTestId('lesson-step')
-  await expect(box.getByTestId('mux-lamp')).toHaveAttribute('aria-label', 'Y = 0')
+  await expect(box.getByTestId('mux-lamp')).toHaveAttribute('aria-label', 'יציאה Y = 0')
   await box.getByTestId('mux-s-1').click() // S1S0 = 01: D1
   await expect(box.getByTestId('mux-pick')).toHaveText('D1')
   await expect(box.getByTestId('goal-status')).not.toContainText('✓')
   await box.getByTestId('mux-s-1').click()
   await box.getByTestId('mux-s-0').press('Enter') // keyboard: S1S0 = 10
   await expect(box.getByTestId('mux-pick')).toHaveText('D2')
-  await expect(box.getByTestId('mux-lamp')).toHaveAttribute('aria-label', 'Y = 1')
+  await expect(box.getByTestId('mux-lamp')).toHaveAttribute('aria-label', 'יציאה Y = 1')
   await expect(box.getByTestId('goal-status')).toContainText('✓')
   await page.getByTestId('lesson-next').click()
   await expectStep(page, lesson.steps[i + 1])
