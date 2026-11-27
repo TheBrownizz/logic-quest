@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test'
 import { switchingWorld } from '../../src/content/switching/world'
 import { emptySave, type SaveData } from '../../src/game/progress'
+import { allLessons } from '../../src/content/lessons/catalog'
 
 export const SAVE_KEY = 'logic-quest-save'
 
@@ -11,16 +12,21 @@ export async function seed(page: Page, save: SaveData) {
   }, [SAVE_KEY, JSON.stringify(save)] as const)
 }
 
+/** `save` with every lesson of every stage done (so a stage's rooms are open as soon as the stage is). */
+export function withLessonsDone(save: SaveData): SaveData {
+  return { ...save, lessons: Object.fromEntries(allLessons.map(l => [l.id, { stepId: l.steps[0].id, done: true }])) }
+}
+
 /**
  * A save in which every stage is open: all rooms of the stages before `uptoOrder` are solved,
- * except `except`. Seeded results carry no optimal or no-hints flags, so they never add stars.
+ * except `except`, and every lesson is done. Seeded results carry no optimal or no-hints flags, so they never add stars.
  */
 export function unlockedSave(except: string[] = [], uptoOrder = 5): SaveData {
   const save = emptySave()
   for (const s of switchingWorld.stages) if (s.order < uptoOrder) for (const r of s.rooms) {
     if (!except.includes(r.id)) save.rooms[r.id] = { solved: true, optimal: false, noHints: false }
   }
-  return save
+  return withLessonsDone(save)
 }
 
 /** Reads the app's saved data in the page. */

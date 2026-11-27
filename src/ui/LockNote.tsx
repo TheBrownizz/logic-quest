@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { World } from '../content/types'
 import type { SaveData } from '../game/progress'
 import { previousStage, roomsToUnlock } from '../game/rules'
@@ -13,6 +14,18 @@ export function LockNote({ world, stageId, save }: { world: World; stageId: stri
     <div className="lock-note" data-testid="lock-note">
       <span aria-hidden>🔒</span>
       <p>השלב נעול. פתור {moreRooms(need)} בשלב הקודם{prev ? ` (${prev.title})` : ''} כדי להיכנס.</p>
+    </div>
+  )
+}
+
+export const LESSONS_LOCK_TEXT = 'השלימו את השיעורים כדי לפתוח את החדרים'
+
+/** The lock of an open stage whose rooms and run wait for its lessons. */
+export function LessonsLockNote({ children }: { children?: ReactNode }) {
+  return (
+    <div className="lock-note" data-testid="lessons-lock-note">
+      <span aria-hidden>🔒</span>
+      <p>{LESSONS_LOCK_TEXT}{children}</p>
     </div>
   )
 }

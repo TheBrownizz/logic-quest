@@ -1,7 +1,9 @@
 import type { Stage } from '../content/types'
 import { isStageUnlocked, roomsToUnlock, stars } from '../game/rules'
-import { LockNote, moreRooms } from './LockNote'
-import { hrefs } from './router'
+import { lessonsForStage, stageRoomsOpen } from '../game/lessonRules'
+import { LessonCard } from './lessons/LessonCard'
+import { LessonsLockNote, LockNote, moreRooms } from './LockNote'
+import { hrefs, queryParam } from './router'
 import { useSave } from './save'
 import { Stars } from './Stars'
 import { findWorld } from './worlds'
@@ -50,6 +52,10 @@ export function StageScreen({ worldId, stageId }: { worldId: string; stageId: st
   const stage = world?.stages.find(s => s.id === stageId)
   if (!world || !stage) return <NotFound />
   const unlocked = isStageUnlocked(world, stage.id, save)
+  const lessons = lessonsForStage(stage.id)
+  const open = stageRoomsOpen(world, stage.id, save)
+  // a lesson that just opened the rooms links here with ?unlocked=1: the rooms light up once
+  const fresh = open && queryParam(window.location.search, window.location.hash, 'unlocked') === '1'
   return (
     <section>
       <a className="back" href={hrefs.world(world.id)}>→ {world.title}</a>
@@ -58,15 +64,33 @@ export function StageScreen({ worldId, stageId }: { worldId: string; stageId: st
         <LockNote world={world} stageId={stage.id} save={save} />
       ) : (
         <>
-          <a className="btn primary" href={hrefs.run(stage.id)}>ריצת חקירה</a>
-          <h2 className="sub">חדרים</h2>
-          <ul className="rooms">
+          {lessons.length > 0 && (
+            <section className="learn" aria-labelledby="learn-h" data-testid="learn">
+              <h2 className="sub" id="learn-h">למד</h2>
+              <ol className="lessons">
+                {lessons.map(l => <LessonCard key={l.id} lesson={l} save={save} recommended={open} />)}
+              </ol>
+            </section>
+          )}
+          <h2 className="sub">{lessons.length > 0 ? 'תרגל' : 'חדרים'}</h2>
+          {open
+            ? <a className="btn primary" href={hrefs.run(stage.id)}>ריצת חקירה</a>
+            : <>
+                <LessonsLockNote />
+                <span className="btn primary locked" aria-disabled="true" data-testid="run-locked">🔒 ריצת חקירה</span>
+              </>}
+          <ul className={`rooms${open ? '' : ' locked'}${fresh ? ' just-unlocked' : ''}`} data-testid="rooms">
             {stage.rooms.map(r => (
               <li key={r.id}>
-                <a className="room-row" data-testid="room-row" href={hrefs.room(r.id)}>
-                  <span className="room-title">{r.title}</span>
-                  <Stars n={stars(save.rooms[r.id])} />
-                </a>
+                {open
+                  ? <a className="room-row" data-testid="room-row" href={hrefs.room(r.id)}>
+                      <span className="room-title">{r.title}</span>
+                      <Stars n={stars(save.rooms[r.id])} />
+                    </a>
+                  : <div className="room-row locked" data-testid="room-row" data-locked="true" aria-disabled="true">
+                      <span className="room-title">{r.title}</span>
+                      <span aria-hidden>🔒</span>
+                    </div>}
               </li>
             ))}
           </ul>

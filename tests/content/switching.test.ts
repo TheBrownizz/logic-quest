@@ -6,6 +6,7 @@ import type { Card, LabPuzzle, Room, Stage } from '../../src/content/types'
 import { gateCount, usesOnly, type Chip, type Circuit } from '../../src/logic/circuit'
 import { referenceChips } from '../../src/content/chips'
 import { minimizeSOP } from '../../src/logic/qm'
+import { lintText, looseFormula, looseGroups, looseMinus } from '../../src/content/lint'
 
 type P<T extends LabPuzzle['type']> = Extract<LabPuzzle, { type: T }>
 const stages = [...switchingWorld.stages].sort((a, b) => a.order - b.order)
@@ -188,11 +189,6 @@ describe('switching content', () => {
     }),
   ]
 
-  /** Minus signs next to digits must sit inside LTR isolates (U+2066…U+2069), or RTL text flips them. */
-  const looseMinus = (text: string) => {
-    const t = text.replace(/⁦[^⁩]*⁩/g, '')
-    return /(^|[\s(])[-−]\d/.test(t) || /\d[-−](?=$|[\s,.;:)])/.test(t) || /[֐-׿-]−\d/.test(t)
-  }
   it('negative numbers in Hebrew text are LTR-isolated', () => {
     expect(looseMinus('מחוץ לטווח 8− עד 7')).toBe(true)
     expect(looseMinus('-128 עד 127')).toBe(true)
@@ -201,33 +197,6 @@ describe('switching content', () => {
     for (const s of stages) for (const [id, t] of textsOf(s)) expect(looseMinus(t), `${id}: "${t}"`).toBe(false)
   })
 
-  /**
-   * A Hebrew string renders right-to-left, so any formula in it must sit in an LTR isolate (ltr()).
-   * Fails when a formula character touches (spaces allowed) a Latin letter or a digit outside an isolate.
-   * Parentheses around text that contains Hebrew are prose punctuation and are ignored.
-   * Strings with no Hebrew render as LTR (see Prose) and are not checked.
-   */
-  const HEB = /[֐-׿]/
-  const looseFormula = (text: string): string | null => {
-    if (!HEB.test(text)) return null
-    let t = text.replace(/⁦[^⁩]*⁩/g, ' ').replace(/[A-Za-z]'[a-z]/g, ' ') // drop isolates and English contractions (Don't)
-    for (let prev = ''; prev !== t;) { prev = t; t = t.replace(/\(([^()]*)\)/g, (m, inner: string) => (HEB.test(inner) ? `\u0001${inner}\u0002` : m)) }
-    const ALNUM = 'A-Za-z0-9²³¹⁰-⁹₀-₉'
-    const OP = "=+·⊕'≤≥<>^_Σ()−→×≠"
-    const m = new RegExp(`[${ALNUM}] *[${OP}]|[${OP}] *[${ALNUM}]`).exec(t)
-    return m ? m[0] : null
-  }
-  /**
-   * Two or more digit/hex groups separated by spaces, no-break spaces or `|` (bit fields, nibble groups) must sit
-   * in one LTR isolate: in RTL text the groups are laid out right to left, i.e. in reverse order.
-   */
-  const GROUP = '[0-9A-F]*[0-9][0-9A-F]*'
-  const SPACED_GROUPS = new RegExp(`(?<!\\w|\\d\\.)${GROUP}(?:[ \u00A0]*\\|[ \u00A0]*|[ \u00A0]+)${GROUP}(?!\\w|\\.\\d)`)
-  const looseGroups = (text: string): string | null => {
-    if (!HEB.test(text)) return null
-    const m = SPACED_GROUPS.exec(text.replace(/⁦[^⁩]*⁩/g, ' '))
-    return m ? m[0] : null
-  }
   it('spaced or |-separated bit groups in Hebrew text are LTR-isolated', () => {
     expect(looseGroups('השלשות הן 011 110 100 011.')).not.toBeNull()
     expect(looseGroups('הקבוצות הן 0101 | 1011 | 1010. המירו')).not.toBeNull()
@@ -264,4 +233,11 @@ describe('switching content', () => {
     expect(bad, bad.join('\n')).toEqual([])
   })
 
+  it('lintText reports every problem of a string and passes all stage texts', () => {
+    expect(lintText('ok')).toEqual([])
+    expect(lintText('מחוץ לטווח 8− עד 7')[0]).toMatch(/negative/)
+    expect(lintText('למשל 2^4 = 16 פונקציות')[0]).toMatch(/formula/)
+    const bad = stages.flatMap(s => textsOf(s).flatMap(([id, t]) => lintText(t).map(m => `${id}: ${m}`)))
+    expect(bad).toEqual([])
+  })
 })

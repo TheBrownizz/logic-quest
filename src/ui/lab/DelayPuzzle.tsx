@@ -1,23 +1,22 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import type { LabPuzzle, Room } from '../../content/types'
+import type { LabPuzzle, World } from '../../content/types'
 import type { RoomResult } from '../../game/progress'
 import { stars } from '../../game/rules'
 import { arrivalTimes, criticalPath, type Node } from '../../logic/circuit'
 import { useSave } from '../save'
 import { Stars } from '../Stars'
 import { CircuitEditor } from './CircuitEditor'
-import { Hints, RestartButton, useHelped, useSolve } from './roomParts'
-import { autoLayout, findRoom, needsLayout } from './labLogic'
+import { HostHints, RestartButton, type PuzzleHost } from './roomParts'
+import { autoLayout, needsLayout } from './labLogic'
 import { referenceChips } from '../../content/chips'
 
 type DelayPz = Extract<LabPuzzle, { type: 'delay' }>
 
-export function DelayPuzzle({ room, puzzle, onRestart }: { room: Room; puzzle: DelayPz; onRestart: () => void }) {
+export function DelayPuzzle({ host, puzzle, world }: { host: PuzzleHost; puzzle: DelayPz; world?: World }) {
   const [save] = useSave()
-  const solve = useSolve(room.id)
+  const { solve, helped, markHelped, onRestart } = host
   // A delay room is a fixed diagram: it must render (and time) the same whether or not the player has built
   // its chips yet, so the world's reference chips take precedence over the player's own.
-  const world = findRoom(room.id)?.world
   const chips = useMemo(() => ({ ...save.chips, ...(world ? referenceChips(world) : {}) }), [save.chips, world])
   const circuit = useMemo(() => (needsLayout(puzzle.circuit) ? autoLayout(puzzle.circuit) : puzzle.circuit), [puzzle.circuit])
   const at = circuit.nodes.find(n => n.id === puzzle.askAt)
@@ -25,8 +24,6 @@ export function DelayPuzzle({ room, puzzle, onRestart }: { room: Room; puzzle: D
 
   const [answer, setAnswer] = useState('')
   const [done, setDone] = useState<{ correct: boolean; result?: RoomResult } | null>(null)
-  const [helped, markHelped] = useHelped(room.id)
-  const [hintsShown, setHintsShown] = useState(0)
   const [celebrate, setCelebrate] = useState(0)
 
   /** A gate's own delay; a chip without one gets its inner worst-case arrival. Omitted if unknown. */
@@ -93,7 +90,7 @@ export function DelayPuzzle({ room, puzzle, onRestart }: { room: Room; puzzle: D
             <div className="verdict good" role="status">
               <div className="verdict-head">
                 <strong className="verdict-title">נכון!</strong>
-                <Stars n={stars(done.result)} testId="result-stars" />
+                {done.result && <Stars n={stars(done.result)} testId="result-stars" />}
               </div>
               <p>המסלול הקריטי מסומן בכתום; ליד כל רכיב זמן ההגעה שלו.</p>
             </div>
@@ -106,7 +103,7 @@ export function DelayPuzzle({ room, puzzle, onRestart }: { room: Room; puzzle: D
             </div>
           )}
         </div>
-        <Hints hints={room.hints} shown={hintsShown} onReveal={() => { setHintsShown(s => s + 1); markHelped() }} />
+        <HostHints host={host} />
       </div>
     </div>
   )

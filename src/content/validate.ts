@@ -19,7 +19,8 @@ function checkFanIn(c: Circuit, err: (m: string) => void): void {
   }
 }
 
-function validateRoom(room: Room, chips: Record<string, Chip>, errs: string[]): void {
+/** Validates one room's puzzle against the chips available to it; problems are pushed to `errs` as "<room id>: ...". */
+export function validateRoom(room: Room, chips: Record<string, Chip>, errs: string[]): void {
   const p = room.puzzle
   const err = (m: string) => errs.push(`${room.id}: ${m}`)
   switch (p.type) {

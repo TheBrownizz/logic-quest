@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { ProgressStore } from '../game/progress'
 import { LabRoom } from './lab/LabRoom'
+import { LessonScreen } from './lessons/LessonScreen'
 import { MapScreen } from './MapScreen'
 import { Collection } from './run/Collection'
 import { RunScreen } from './run/RunScreen'
@@ -18,6 +19,7 @@ function Screen() {
     case 'stage': return <StageScreen worldId={r.worldId} stageId={r.stageId} />
     case 'room': return <LabRoom key={r.roomId} roomId={r.roomId} />
     case 'run': return <RunScreen key={r.stageId} stageId={r.stageId} />
+    case 'lesson': return <LessonScreen key={r.lessonId} lessonId={r.lessonId} stepId={r.stepId} />
     case 'collection': return <Collection />
     default: return <NotFound />
   }

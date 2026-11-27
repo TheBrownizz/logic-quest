@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Room } from '../../content/types'
 import type { RoomResult } from '../../game/progress'
 import { isStageUnlocked, stars } from '../../game/rules'
-import { LockNote } from '../LockNote'
+import { stageRoomsOpen } from '../../game/lessonRules'
+import { LessonsLockNote, LockNote } from '../LockNote'
 import type { Bit, TruthTable } from '../../logic/boolean'
 import { circuitTruthTable, simulate, usesOnly, type Circuit } from '../../logic/circuit'
 import { hasQueryFlag, hrefs } from '../router'
@@ -15,10 +15,10 @@ import { CodePuzzle } from './CodePuzzle'
 import { DelayPuzzle } from './DelayPuzzle'
 import { KMapPuzzle } from './KMapPuzzle'
 import { NumberPuzzle } from './NumberPuzzle'
-import { Hints, useHelped, useSolve } from './roomParts'
+import { HostHints, useRoomHost, type PuzzleHost } from './roomParts'
 import {
   alignTable, autoLayout, checkCircuit, errorText, findRoom, initialCircuit,
-  needsLayout, refersToChip, restartRoom, storeChip, usableDraft, type CheckResult, type ChipStore, type CircuitPuzzle,
+  needsLayout, refersToChip, restartRoom, storeChip, usableDraft, type CheckResult, type ChipStore, type Chips as ChipsMap, type CircuitPuzzle,
   visibleRows,
 } from './labLogic'
 import './lab.css'
@@ -36,12 +36,15 @@ function RoomView({ world, stage, room }: NonNullable<ReturnType<typeof findRoom
   const restart = () => { update(d => restartRoom(d, room.id)); setAttempt(a => a + 1) }
   const key = `${room.id}#${attempt}`
   const pz = room.puzzle
-  if (!isStageUnlocked(world, stage.id, save)) {
+  const host = useRoomHost(room, restart)
+  if (!stageRoomsOpen(world, stage.id, save)) {
     return (
       <section className="lab">
         <a className="back" href={hrefs.stage(world.id, stage.id)}>→ {stage.title}</a>
         <h1 className="title">{room.title}</h1>
-        <LockNote world={world} stageId={stage.id} save={save} />
+        {isStageUnlocked(world, stage.id, save)
+          ? <LessonsLockNote />
+          : <LockNote world={world} stageId={stage.id} save={save} />}
       </section>
     )
   }
@@ -50,11 +53,11 @@ function RoomView({ world, stage, room }: NonNullable<ReturnType<typeof findRoom
       <a className="back" href={hrefs.stage(world.id, stage.id)}>→ {stage.title}</a>
       <h1 className="title">{room.title}</h1>
       <Prose as="p" className="intro" text={room.intro} />
-      {pz.type === 'circuit' ? <CircuitRoom key={key} room={room} puzzle={pz} onRestart={restart} autofill={attempt === 0} />
-        : pz.type === 'delay' ? <DelayPuzzle key={key} room={room} puzzle={pz} onRestart={restart} />
-          : pz.type === 'kmap' ? <KMapPuzzle key={key} room={room} puzzle={pz} onRestart={restart} />
-            : pz.type === 'number' ? <NumberPuzzle key={key} room={room} puzzle={pz} onRestart={restart} />
-              : <CodePuzzle key={key} room={room} puzzle={pz} onRestart={restart} />}
+      {pz.type === 'circuit' ? <CircuitPuzzleView key={key} host={host} puzzle={pz} room={{ id: room.id, autofill: attempt === 0 }} />
+        : pz.type === 'delay' ? <DelayPuzzle key={key} host={host} puzzle={pz} world={world} />
+          : pz.type === 'kmap' ? <KMapPuzzle key={key} host={host} puzzle={pz} />
+            : pz.type === 'number' ? <NumberPuzzle key={key} host={host} puzzle={pz} />
+              : <CodePuzzle key={key} host={host} puzzle={pz} />}
       {save.rooms[room.id]?.solved && <NextRoom world={world} stage={stage} room={room} />}
     </section>
   )
@@ -78,27 +81,33 @@ function NextRoom({ world, stage, room }: NonNullable<ReturnType<typeof findRoom
 /** `result` is the merged, saved result (stars); `attempt` is this attempt alone (checklist). */
 type Verdict = { res: CheckResult; table?: TruthTable; result?: RoomResult; attempt?: RoomResult; unlocked?: { name: string; outcome: ChipStore } }
 
-function CircuitRoom({ room, puzzle, onRestart, autofill }: { room: Room; puzzle: CircuitPuzzle; onRestart: () => void; autofill: boolean }) {
+const NO_CHIPS: ChipsMap = {}
+
+/**
+ * The circuit lab. With `room` it is a lab room: the draft is saved, the player's chips are in the palette,
+ * an unlock room stores its chip, and `?autofill=1` loads the reference. Without `room` (a lesson `try` step)
+ * nothing is saved and the palette is exactly `puzzle.allowed`.
+ */
+export function CircuitPuzzleView({ host, puzzle, room }: { host: PuzzleHost; puzzle: CircuitPuzzle; room?: { id: string; autofill: boolean } }) {
   const [save, update] = useSave()
-  const solve = useSolve(room.id)
-  const chips = save.chips
+  const { solve, helped, markHelped, onRestart } = host
+  const chips = room ? save.chips : NO_CHIPS
   const spec = puzzle.spec
 
   const palette = useMemo(() => {
+    if (!room) return [...puzzle.allowed]
     const own = Object.keys(chips).filter(name => {
       if (name === puzzle.unlocksChip?.name) return false
       try { return usesOnly(chips[name].circuit, puzzle.allowed, chips, [name]) } catch { return false }
     })
     return [...puzzle.allowed, ...own]
-  }, [chips, puzzle])
+  }, [chips, puzzle, room])
 
   const [circuit, setCircuit] = useState<Circuit>(() => {
-    const d = save.drafts[room.id]
+    const d = room ? save.drafts[room.id] : undefined
     if (!usableDraft(d, spec)) return initialCircuit(spec)
     return needsLayout(d) ? autoLayout(d) : d
   })
-  const [helped, markHelped] = useHelped(room.id)
-  const [hintsShown, setHintsShown] = useState(0)
   const [inputs, setInputs] = useState<Record<string, Bit>>({})
   const [verdict, setVerdict] = useState<Verdict | null>(null)
   const [sweep, setSweep] = useState<number | null>(null)
@@ -110,12 +119,12 @@ function CircuitRoom({ room, puzzle, onRestart, autofill }: { room: Room; puzzle
     setCircuit(c)
     setVerdict(null)
     setCelebrate(0)
-    update(d => ({ ...d, drafts: { ...d.drafts, [room.id]: c } }))
+    if (room) update(d => ({ ...d, drafts: { ...d.drafts, [room.id]: c } }))
   }
 
   const autofilled = useRef(false)
   useEffect(() => {
-    if (!autofill || autofilled.current || !hasQueryFlag(window.location.search, window.location.hash, 'autofill')) return
+    if (!room?.autofill || autofilled.current || !hasQueryFlag(window.location.search, window.location.hash, 'autofill')) return
     autofilled.current = true
     markHelped()
     edit(autoLayout(puzzle.reference))
@@ -139,7 +148,7 @@ function CircuitRoom({ room, puzzle, onRestart, autofill }: { room: Room; puzzle
       } catch { /* shown as the spec only */ }
       // Save now, so leaving during the sweep can't lose the solve. Never store a chip that
       // contains itself (only possible through an old draft).
-      const unlock = puzzle.unlocksChip && !refersToChip(circuit, puzzle.unlocksChip.name, chips) ? puzzle.unlocksChip : undefined
+      const unlock = room && puzzle.unlocksChip && !refersToChip(circuit, puzzle.unlocksChip.name, chips) ? puzzle.unlocksChip : undefined
       v.attempt = { solved: true, optimal: res.optimal, noHints: !helped }
       let stored: ChipStore | undefined
       v.result = solve(v.attempt, unlock
@@ -210,7 +219,7 @@ function CircuitRoom({ room, puzzle, onRestart, autofill }: { room: Room; puzzle
               revealed={sweep === null ? spec.rows.length : sweep + 1} mismatch={sweep === null && res?.kind === 'mismatch'} />
           )}
         </div>
-        <Hints hints={room.hints} shown={hintsShown} onReveal={() => { setHintsShown(s => s + 1); markHelped() }} />
+        <HostHints host={host} />
       </div>
     </div>
   )
@@ -224,13 +233,13 @@ function VerdictView({ v, puzzle }: { v: Verdict; puzzle: CircuitPuzzle }) {
       <div className="verdict good" role="status">
         <div className="verdict-head">
           <strong className="verdict-title">נכון!</strong>
-          <Stars n={got} testId="result-stars" />
+          {v.result && <Stars n={got} testId="result-stars" />}
         </div>
         <p className="mono-num">{r.gates} שערים · אופטימום {puzzle.optimalGates}</p>
         <ul className="checks">
           <li className="ok">✓ המעגל עובד</li>
           <li className={v.attempt?.optimal ? 'ok' : 'muted'}>{v.attempt?.optimal ? '✓' : '○'} מספר שערים אופטימלי</li>
-          <li className={v.attempt?.noHints ? 'ok' : 'muted'}>{v.attempt?.noHints ? '✓' : '○'} בלי רמזים</li>
+          {v.result && <li className={v.attempt?.noHints ? 'ok' : 'muted'}>{v.attempt?.noHints ? '✓' : '○'} בלי רמזים</li>}
         </ul>
         {v.unlocked?.outcome === 'new' && <p className="unlock">רכיב חדש נפתח: {v.unlocked.name}</p>}
         {v.unlocked?.outcome === 'better' && <p className="unlock">הרכיב {v.unlocked.name} עודכן למעגל הקטן יותר</p>}
