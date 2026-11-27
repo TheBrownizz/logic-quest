@@ -85,3 +85,21 @@ export function isGoalMet(s: GateToyState, g: GateToyGoal, c: GateToyConfig): bo
   if (g.kind === 'all-rows') return s.tried.length >= rowCount(c.vars.length) && Array.from({ length: rowCount(c.vars.length) }, (_, r) => r).every(r => s.tried.includes(r))
   return outputOf(c, s) === g.value
 }
+
+// ---- drawing layout (pure, so it can be unit tested) ----
+/** The expression box: its width follows the text (mono 14px ≈ 8.4 units a character). */
+const CHAR_W = 8.4
+const BOX_PAD = 24
+const BOX_MIN = 108
+/** Widest box in the standard drawing (x 148 to 300, leaving an output wire before the lamp). */
+const BOX_FIT = 152
+/** How far the drawing may widen for a long expression before the text is squeezed with textLength. */
+const MAX_EXTRA = 180
+
+/** Box width, the extra drawing width it needs, and the squeezed text length (when even the widest box is too narrow). */
+export function boxLayout(label: string): { w: number; extra: number; textLength?: number } {
+  const textW = [...label].length * CHAR_W
+  const want = Math.max(BOX_MIN, Math.ceil(textW + BOX_PAD))
+  const w = Math.min(want, BOX_FIT + MAX_EXTRA)
+  return { w, extra: Math.max(0, w - BOX_FIT), textLength: textW + BOX_PAD > w ? w - BOX_PAD : undefined }
+}

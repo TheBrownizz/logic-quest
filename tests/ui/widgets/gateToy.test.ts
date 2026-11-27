@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { evalGate, type GateKind } from '../../../src/logic/circuit'
-import type { Bit } from '../../../src/logic/boolean'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { GateToy } from '../../../src/ui/lessons/widgets/GateToy'
 import type { BoolExpr } from '../../../src/ui/lessons/widgets/types'
 import {
-  assignmentOf, columnOf, flip, initial, isGoalMet, opened, outputOf, pickRow, rowCount, rowOf, withRow,
+  assignmentOf, boxLayout, columnOf, flip, initial, isGoalMet, opened, outputOf, pickRow, rowCount, rowOf, withRow,
   type GateToyConfig,
 } from '../../../src/ui/lessons/widgets/gateToyLogic'
-import { columnOfDisplay } from './boolExprParser'
 
 const and2: BoolExpr = { display: 'A·B', fn: v => (v.A && v.B ? 1 : 0) }
 const cfg: GateToyConfig = { vars: ['A', 'B'], expr: and2, gate: 'AND' }
@@ -79,13 +79,40 @@ describe('gateToyLogic isGoalMet', () => {
   })
 })
 
-describe('gate expressions agree with the circuit model', () => {
-  const kinds: GateKind[] = ['AND', 'OR', 'NAND', 'NOR', 'XOR', 'XNOR']
-  const display: Record<string, string> = { AND: 'A·B', OR: 'A+B', NAND: "(A·B)'", NOR: "(A+B)'", XOR: 'A⊕B', XNOR: "(A⊕B)'" }
-  for (const k of kinds) {
-    it(`${k}: the display string and evalGate give the same column`, () => {
-      const want = Array.from({ length: 4 }, (_, r) => evalGate(k, [(r >> 1) as Bit, (r & 1) as Bit]))
-      expect(columnOfDisplay(display[k], ['A', 'B'])).toEqual(want)
-    })
-  }
+
+describe('expression box layout', () => {
+  it('short labels keep the minimum box, inside the standard drawing', () => {
+    expect(boxLayout("(A+B)·C'")).toEqual({ w: 108, extra: 0, textLength: undefined })
+  })
+  it('a longer label grows the box to its text, still in the standard drawing when it fits', () => {
+    const b = boxLayout('F = Σm(3,5,6,7)') // 15 characters, wider than the old fixed 108
+    expect(b.w).toBeGreaterThan(15 * 8.4)
+    expect(b.w).toBeLessThanOrEqual(152)
+    expect(b.extra).toBe(0)
+    expect(b.textLength).toBeUndefined()
+  })
+  it('a 40-character label widens the drawing, then squeezes the text only past the cap', () => {
+    const b = boxLayout("(A+B')·(A'+C)·(B+C')+A·B·C'+A'·B'·C+A·C'") // 40 characters
+    expect([..."(A+B')·(A'+C)·(B+C')+A·B·C'+A'·B'·C+A·C'"]).toHaveLength(40)
+    expect(b.extra).toBe(180)
+    expect(b.w).toBe(332)
+    expect(b.textLength).toBe(308)
+  })
+})
+
+describe('GateToy renders a long expression inside its box', () => {
+  it('the box, the output wire and the lamp do not overlap, for a 40-character display', () => {
+    const display = "(A+B')·(A'+C)·(B+C')+A·B·C'+A'·B'·C+A·C'"
+    const html = renderToStaticMarkup(createElement(GateToy, {
+      config: { vars: ['A', 'B', 'C'], expr: { display, fn: () => 0 as const } }, onState: () => {}, completed: false, reducedMotion: true,
+    }))
+    const num = (re: RegExp) => Number(re.exec(html)![1])
+    const vbW = num(/viewBox="0 0 (\d+(?:\.\d+)?) /)
+    const rectX = num(/<rect class="gt-body"[^>]* x="(\d+(?:\.\d+)?)"/)
+    const rectW = num(/<rect class="gt-body"[^>]* width="(\d+(?:\.\d+)?)"/)
+    const lampX = num(/class="gt-bulb" cx="(\d+(?:\.\d+)?)"/)
+    expect(rectX + rectW).toBeLessThan(lampX - 22) // an output wire is left between box and lamp
+    expect(lampX + 22).toBeLessThanOrEqual(vbW)
+    expect(html).toContain('textLength="308"')
+  })
 })

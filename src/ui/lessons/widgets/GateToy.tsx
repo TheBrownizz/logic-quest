@@ -2,14 +2,14 @@ import { useEffect, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import type { GateKind } from '../../../logic/circuit'
 import type { WidgetProps } from './types'
-import { assignmentOf, columnOf, flip, opened, outputOf, pickRow, rowCount, type GateToyConfig, type GateToyGoal, type GateToyState } from './gateToyLogic'
+import { assignmentOf, boxLayout, columnOf, flip, opened, outputOf, pickRow, rowCount, type GateToyConfig, type GateToyGoal, type GateToyState } from './gateToyLogic'
 import './GateToy.css'
 
-const W = 380
+const W0 = 380
 const GX = 148 // body left edge
 const SW_X = 34 // switch pill left edge
 const SW_W = 56
-const LAMP_X = 338
+const LAMP_X0 = 338
 
 const pinGap = (n: number) => (n === 2 ? 44 : 34)
 const heightOf = (n: number) => (n === 1 ? 112 : n === 2 ? 150 : 190)
@@ -22,10 +22,12 @@ function body(kind: GateKind | undefined, x: number, cy: number, n: number, labe
   const cls = `gt-body${on ? ' on' : ''}`
   if (!kind) {
     const h = n === 1 ? 30 : n === 2 ? 40 : 56
-    return { w: 108, out: 108, node: (
+    const b = boxLayout(label)
+    return { w: b.w, out: x + b.w, node: (
       <g>
-        <rect className={cls} x={x} y={cy - h} width={108} height={2 * h} rx={12} />
-        <text className="gt-expr" x={x + 54} y={cy + 5} textAnchor="middle">{label}</text>
+        <rect className={cls} x={x} y={cy - h} width={b.w} height={2 * h} rx={12} />
+        <text className="gt-expr" x={x + b.w / 2} y={cy + 5} textAnchor="middle"
+          {...(b.textLength ? { textLength: b.textLength, lengthAdjust: 'spacingAndGlyphs' } : {})}>{label}</text>
       </g>
     ) }
   }
@@ -76,6 +78,9 @@ export function GateToy({ config, onState, reducedMotion }: WidgetProps<GateToyC
   const cy = H / 2
   const ys = pinYs(n, cy)
   const g = body(gate, GX, cy, n, expr.display, out === 1)
+  const extra = gate ? 0 : boxLayout(expr.display).extra
+  const W = W0 + extra
+  const LAMP_X = LAMP_X0 + extra
   const outX = g.out
   const col = columnOf(vars, expr)
   const rowNow = vars.reduce((acc, v) => acc * 2 + (state.inputs[v] ? 1 : 0), 0)

@@ -31,8 +31,8 @@
 .ib-table tbody tr.differ { background: color-mix(in srgb, var(--danger) 13%, transparent); }
 .ib-table tbody tr.differ.cur { background: color-mix(in srgb, var(--danger) 22%, transparent); }
 .ib-table tbody tr.fresh .ib-cell { animation: gt-fill .45s ease-out backwards; }
-.ib-table tbody tr.fresh .ib-cell:nth-last-child(2) { animation-delay: .15s; }
-.ib-table tbody tr.fresh .ib-cell:nth-last-child(1) { animation-delay: .3s; }
+.ib-table tbody tr.fresh .ib-cell:nth-last-child(3) { animation-delay: .1s; }
+.ib-table tbody tr.fresh .ib-cell:nth-last-child(2) { animation-delay: .3s; }
 .ib-table tbody tr.fresh .ib-verdict { animation: gt-fill .45s ease-out .5s backwards; }
 .ib-status { margin: 0; text-align: center; color: var(--muted); font-size: .95rem; }
 .ib-status.good { color: var(--one); }

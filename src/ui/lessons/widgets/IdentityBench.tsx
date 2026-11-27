@@ -94,7 +94,7 @@ export function IdentityBench({ config, onState, reducedMotion }: WidgetProps<Id
 
       <p className={`ib-status${diffs.length ? ' bad' : all ? ' good' : ''}`} role="status" data-testid="ib-status">
         {diffs.length
-          ? <>נמצאה שורה שבה הם נבדלים ({diffs.map((r, i) => <span key={r}>{i ? ', ' : ''}<bdi dir="ltr">{r}</bdi></span>)}), ולכן הם לא שקולים.</>
+          ? <>{diffs.length === 1 ? 'נמצאה שורה שבה הם נבדלים' : 'נמצאו שורות שבהן הם נבדלים'} ({diffs.map((r, i) => <span key={r}>{i ? ', ' : ''}<bdi dir="ltr">{r}</bdi></span>)}), ולכן הם לא שקולים.</>
           : all
             ? 'בכל השורות הערכים זהים, ולכן שני הביטויים שקולים.'
             : `נוסו ${state.tried.length} מתוך ${N} שורות. עד כה אין הבדל.`}
