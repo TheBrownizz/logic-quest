@@ -19,6 +19,11 @@ export interface SaveData {
   helped: Record<string, true>
   /** Lesson progress by lesson id. Optional in stored saves (older v1 saves have none); loaded as {}. */
   lessons: Record<string, LessonProgress>
+  /**
+   * Stages whose rooms and run were opened by finishing their lessons. Kept so the unlock is permanent even if
+   * lessons are added to the stage later. Optional in stored saves; loaded as [].
+   */
+  openStages: string[]
 }
 export interface ProgressStore {
   load(): SaveData
@@ -35,7 +40,7 @@ export const SAVE_KEY = 'logic-quest-save'
 export const BACKUP_KEY = 'logic-quest-save-backup'
 
 export function emptySave(): SaveData {
-  return { version: 1, rooms: {}, chips: {}, drafts: {}, knowledge: [], bestRun: {}, flagged: [], helped: {}, lessons: {} }
+  return { version: 1, rooms: {}, chips: {}, drafts: {}, knowledge: [], bestRun: {}, flagged: [], helped: {}, lessons: {}, openStages: [] }
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -76,8 +81,9 @@ function normalize(v: unknown): SaveData | null {
   if (!isStrArr(knowledge) || !isStrArr(flagged)) return null
   const helped = isObj(v.helped) ? filterEntries(v.helped, (x): x is true => x === true) : {}
   const lessons = isObj(v.lessons) ? filterEntries(v.lessons, validLesson) : {}
+  const openStages = Array.isArray(v.openStages) ? [...new Set(v.openStages.filter((x): x is string => typeof x === 'string'))] : []
   if (!isObj(bestRun) || !Object.values(bestRun).every(n => typeof n === 'number')) return null
-  return { version: 1, rooms: rooms as SaveData['rooms'], chips: filterEntries(chips, validChipEntry), drafts: filterEntries(drafts, validCircuit), knowledge, bestRun: bestRun as SaveData['bestRun'], flagged, helped, lessons }
+  return { version: 1, rooms: rooms as SaveData['rooms'], chips: filterEntries(chips, validChipEntry), drafts: filterEntries(drafts, validCircuit), knowledge, bestRun: bestRun as SaveData['bestRun'], flagged, helped, lessons, openStages }
 }
 
 export class LocalProgressStore implements ProgressStore {

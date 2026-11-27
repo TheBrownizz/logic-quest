@@ -3,6 +3,7 @@ import { lintText } from '../lint'
 import type { World } from '../types'
 import { validateRoom } from '../validate'
 import { registry } from '../../ui/lessons/widgets/registry'
+import { normalizeAnswer } from './answer'
 import { allFigures } from './catalog'
 import { WIDGET_NAMES, type Figures, type Lesson, type SkipQuestion, type Step, type WidgetName } from './types'
 
@@ -12,7 +13,6 @@ const RECAP_POINTS = [3, 5] as const
 const OPTIONS = [2, 4] as const
 export const MIN_SKIP_QUIZ = 6
 
-const norm = (s: string) => s.replace(/\s+/g, '').toUpperCase()
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e))
 const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length
 const blank = (s: unknown) => typeof s !== 'string' || s.trim() === ''
@@ -48,6 +48,11 @@ function validateStep(lesson: Lesson, step: Step, world: World, opts: Required<V
     case 'widget': {
       if (blank(step.prompt)) err('prompt is empty')
       if (!WIDGET_NAMES.includes(step.widget)) { err(`unknown widget "${step.widget}"`); break }
+      // user-visible sentences belong in `prompt`; config holds short labels only
+      for (const [path, str] of configStrings(step.config)) {
+        if (/[֐-׿]/.test(str)) err(`${path} has Hebrew text; put sentences in the prompt (config holds short labels only)`)
+        else if (str.length > CONFIG_LABEL_MAX) err(`${path} is ${str.length} characters (config labels are at most ${CONFIG_LABEL_MAX})`)
+      }
       const def = opts.widgets[step.widget]
       let init: unknown
       try { init = def.initial(step.config as never) } catch (e) { err(`initial(config) threw: ${msg(e)}`); break }
@@ -73,7 +78,7 @@ function validateStep(lesson: Lesson, step: Step, world: World, opts: Required<V
       if (blank(step.feedbackWrong)) err('feedbackWrong is empty')
       let got: string
       try { got = step.compute() } catch (e) { err(`compute() threw: ${msg(e)}`); break }
-      if (norm(got) !== norm(step.answer)) err(`compute() gives "${got}" but answer is "${step.answer}"`)
+      if (normalizeAnswer(got) !== normalizeAnswer(step.answer)) err(`compute() gives "${got}" but answer is "${step.answer}"`)
       break
     }
     case 'try': {
@@ -98,11 +103,23 @@ function validateStep(lesson: Lesson, step: Step, world: World, opts: Required<V
   }
 }
 
+/** Longest string a widget config may hold: config carries short labels (variable names, formulas) only. */
+export const CONFIG_LABEL_MAX = 40
+
+/** Every string inside a widget config (objects and arrays, recursively), with its path ("config.left.display"). */
+export function configStrings(v: unknown, path = 'config', seen = new Set<unknown>()): Array<[string, string]> {
+  if (typeof v === 'string') return [[path, v]]
+  if (typeof v !== 'object' || v === null || seen.has(v)) return []
+  seen.add(v)
+  if (Array.isArray(v)) return v.flatMap((x, i) => configStrings(x, `${path}[${i}]`, seen))
+  return Object.entries(v).flatMap(([k, x]) => configStrings(x, `${path}.${k}`, seen))
+}
+
 /** Every user-visible string of a step, labelled for error messages. */
 function stepTexts(step: Step): Array<[string, string]> {
   switch (step.kind) {
     case 'explain': return [['text', step.text]]
-    case 'widget': return [['prompt', step.prompt]]
+    case 'widget': return [['prompt', step.prompt], ...configStrings(step.config)]
     case 'check': return [['prompt', step.prompt], ...step.options.map((o, i): [string, string] => [`option ${i + 1}`, o]), ...step.feedback.map((f, i): [string, string] => [`feedback ${i + 1}`, f])]
     case 'check-number': return [['prompt', step.prompt], ['feedbackWrong', step.feedbackWrong]]
     case 'try': {

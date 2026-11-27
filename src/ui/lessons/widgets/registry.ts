@@ -1,4 +1,5 @@
 import type { WidgetName } from '../../../content/lessons/types'
+import type { ConfigOf, GoalOf, StateOf } from '../../../content/lessons/widgetTypes'
 import type { WidgetDef } from './types'
 import { BaseDial } from './BaseDial'
 import * as baseDial from './baseDialLogic'
@@ -19,13 +20,14 @@ import * as rippleTimeline from './rippleTimelineLogic'
 import { MuxToy } from './MuxToy'
 import * as muxToy from './muxToyLogic'
 
-type AnyDef = WidgetDef<any, any, any>
+/** Each widget's definition, typed with its pinned config, state and goal (see content/lessons/widgetTypes.ts). */
+export type Registry = { [K in WidgetName]: WidgetDef<ConfigOf<K>, StateOf<K>, GoalOf<K>> }
 
 /**
  * Every lesson widget by name. Each entry wires `<Name>.tsx` (component) to `<name>Logic.ts` (initial, isGoalMet).
  * Lessons tasks replace those two files only; this file stays as it is.
  */
-export const registry: Record<WidgetName, AnyDef> = {
+export const registry: Registry = {
   BaseDial: { Component: BaseDial, initial: baseDial.initial, isGoalMet: baseDial.isGoalMet },
   BaseConvert: { Component: BaseConvert, initial: baseConvert.initial, isGoalMet: baseConvert.isGoalMet },
   ComplementLab: { Component: ComplementLab, initial: complementLab.initial, isGoalMet: complementLab.isGoalMet },

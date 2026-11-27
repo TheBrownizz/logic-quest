@@ -1,6 +1,7 @@
 import type { Figures, Lesson } from '../../lessons/types'
 import { fromBase, toBase } from '../../../logic/numbers'
 import { ltr } from '../helpers'
+import { widgetStep } from '../../lessons/widgetTypes'
 import { syl } from '../syllabus'
 
 /**
@@ -18,10 +19,10 @@ export const lessons: Lesson[] = [
         id: 'place', kind: 'explain', figure: 's1-place',
         text: `במספר 345 הספרה 3 לא שווה שלוש: היא שווה שלוש מאות, כי היא יושבת במקום של המאות. כל מקום שווה פי 10 מהמקום שמימינו, ולכן ${ltr('345 = 3·100 + 4·10 + 5·1')}.`,
       },
-      {
-        id: 'dial', kind: 'widget', widget: 'BaseDial', config: { base: 2, digits: 4 },
+      widgetStep({
+        id: 'dial', widget: 'BaseDial', config: { base: 2, width: 4 },
         prompt: 'שנו את הספרות וראו איך משקל המקום של כל ספרה בונה את הערך.',
-      },
+      }),
       {
         id: 'base-r', kind: 'explain',
         text: `בבסיס r יש r ספרות, מ-0 עד ${ltr('r − 1')}, וכל מקום שווה פי r מהמקום שמימינו. בבסיס 2 יש רק 0 ו-1, ומשקלי המקומות מימין לשמאל הם 1, 2, 4, 8 וכן הלאה.`,

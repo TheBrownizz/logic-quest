@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   QUIZ_COOLDOWN_MS, QUIZ_SIZE, drawQuiz, lessonDone, lessonStatus, lessonsForStage, quizCooldownLeft,
-  recordQuizFail, recordQuizPass, recordStep, stageRoomsOpen,
+  recordQuizFail, recordQuizPass, recordStep, rememberOpenStages, stageRoomsOpen,
 } from '../../src/game/lessonRules'
 import { LocalProgressStore, emptySave, type SaveData } from '../../src/game/progress'
 import { mulberry32 } from '../../src/game/run'
@@ -23,6 +23,10 @@ const withLessons = (lessons: SaveData['lessons'], rooms: string[] = []): SaveDa
   ...emptySave(), lessons,
   rooms: Object.fromEntries(rooms.map(r => [r, { solved: true, optimal: false, noHints: false }])),
 })
+
+const of = (id: string) => (id === 's1' ? L : [])
+const rs = (s: SaveData, l: Lesson, id: string) => recordStep(world, s, l, id, of)
+const rqp = (s: SaveData, l: Lesson) => recordQuizPass(world, s, l, of)
 
 describe('lessonDone / lessonStatus', () => {
   it('done when the entry says so (end reached or quiz passed)', () => {
@@ -113,7 +117,7 @@ describe('skip quiz pass, fail and cooldown', () => {
   it('a failure blocks for 10 minutes', () => {
     expect(QUIZ_COOLDOWN_MS).toBe(10 * 60 * 1000)
     const s = recordQuizFail(emptySave(), L[0], t0)
-    expect(s.lessons.l1).toEqual({ stepId: 'a', done: false, quizFailedAt: t0 })
+    expect(s.lessons.l1).toEqual({ stepId: '', done: false, quizFailedAt: t0 })
     expect(quizCooldownLeft(s, 'l1', t0)).toBe(QUIZ_COOLDOWN_MS)
     expect(quizCooldownLeft(s, 'l1', t0 + 60_000)).toBe(QUIZ_COOLDOWN_MS - 60_000)
     expect(quizCooldownLeft(s, 'l1', t0 + QUIZ_COOLDOWN_MS)).toBe(0)
@@ -125,7 +129,7 @@ describe('skip quiz pass, fail and cooldown', () => {
     expect(s.lessons.l1.stepId).toBe('end')
   })
   it('finishing the lesson lifts the cooldown', () => {
-    const s = recordStep(recordQuizFail(emptySave(), L[0], t0), L[0], 'end')
+    const s = rs(recordQuizFail(emptySave(), L[0], t0), L[0], 'end')
     expect(s.lessons.l1.done).toBe(true)
     expect(quizCooldownLeft(s, 'l1', t0)).toBe(0)
   })
@@ -138,31 +142,88 @@ describe('skip quiz pass, fail and cooldown', () => {
     expect(quizCooldownLeft(again, 'l1', t0 + 1000)).toBe(QUIZ_COOLDOWN_MS - 1000)
   })
   it('a pass marks the lesson done and skipped, and clears the failure', () => {
-    const s = recordQuizPass(recordQuizFail(emptySave(), L[0], t0), L[0])
-    expect(s.lessons.l1).toEqual({ stepId: 'a', done: true, skipped: true })
+    const s = rqp(recordQuizFail(emptySave(), L[0], t0), L[0])
+    expect(s.lessons.l1).toMatchObject({ stepId: 'a', done: true, skipped: true })
+    expect(s.lessons.l1.quizFailedAt).toBeUndefined()
     expect(lessonStatus(s, 'l1')).toBe('skipped')
   })
   it('a pass after finishing keeps the status "done"', () => {
-    const s = recordQuizPass(recordStep(emptySave(), L[0], 'end'), L[0])
+    const s = rqp(rs(emptySave(), L[0], 'end'), L[0])
     expect(lessonStatus(s, 'l1')).toBe('done')
   })
 })
 
 describe('recordStep', () => {
   it('saves the step id; the last step marks the lesson done', () => {
-    const a = recordStep(emptySave(), L[0], 'a')
+    const a = rs(emptySave(), L[0], 'a')
     expect(a.lessons.l1).toEqual({ stepId: 'a', done: false })
-    const b = recordStep(a, L[0], 'end')
+    const b = rs(a, L[0], 'end')
     expect(b.lessons.l1).toEqual({ stepId: 'end', done: true })
   })
   it('going back keeps done; finishing a skipped lesson makes it "done"', () => {
-    const done = recordStep(recordStep(emptySave(), L[0], 'end'), L[0], 'a')
+    const done = rs(rs(emptySave(), L[0], 'end'), L[0], 'a')
     expect(done.lessons.l1).toEqual({ stepId: 'a', done: true })
-    const sk = recordStep(recordQuizPass(emptySave(), L[0]), L[0], 'end')
+    const sk = rs(rqp(emptySave(), L[0]), L[0], 'end')
     expect(lessonStatus(sk, 'l1')).toBe('done')
   })
   it('returns the same save when nothing changes', () => {
-    const a = recordStep(emptySave(), L[0], 'a')
-    expect(recordStep(a, L[0], 'a')).toBe(a)
+    const a = rs(emptySave(), L[0], 'a')
+    expect(rs(a, L[0], 'a')).toBe(a)
+  })
+})
+
+describe('minor 3: taking the skip quiz does not start the lesson', () => {
+  it('a failed quiz on an unopened lesson keeps it "new" (with the cooldown)', () => {
+    const s = recordQuizFail(emptySave(), L[0], 1000)
+    expect(lessonStatus(s, 'l1')).toBe('new')
+    expect(quizCooldownLeft(s, 'l1', 1000)).toBe(QUIZ_COOLDOWN_MS)
+    // opening the lesson afterwards starts it, and keeps the cooldown
+    const t = rs(s, L[0], 'a')
+    expect(lessonStatus(t, 'l1')).toBe('progress')
+    expect(t.lessons.l1.quizFailedAt).toBe(1000)
+  })
+})
+
+describe('openStages: the unlock is stored and permanent', () => {
+  const done = (...ids: string[]) => withLessons(Object.fromEntries(ids.map(id => [id, { stepId: 'end', done: true }])))
+  it('defaults to [] and drops bad entries on load', () => {
+    expect(emptySave().openStages).toEqual([])
+    const m: Record<string, string> = { 'logic-quest-save': JSON.stringify({ version: 1, openStages: ['s1', 5, null, 's1', 's2'] }) }
+    const st = { getItem: (k: string) => m[k] ?? null, setItem: (k: string, v: string) => { m[k] = v } } as unknown as Storage
+    expect(new LocalProgressStore(st).load().openStages).toEqual(['s1', 's2'])
+    m['logic-quest-save'] = JSON.stringify({ version: 1, openStages: 'x' })
+    expect(new LocalProgressStore(st).load().openStages).toEqual([])
+  })
+  it('finishing the last lesson of a stage records it', () => {
+    const a = rs(done('l2'), L[0], 'a')
+    expect(a.openStages).toEqual([])
+    const b = rs(a, L[0], 'end')
+    expect(b.openStages).toEqual(['s1'])
+  })
+  it('passing the skip quiz of the last lesson records it', () => {
+    expect(rqp(done('l1'), L[1]).openStages).toEqual(['s1'])
+    expect(rqp(emptySave(), L[1]).openStages).toEqual([])
+  })
+  it('a lesson added later does not relock a stage', () => {
+    const save = rs(done('l2'), L[0], 'end')
+    const more = [...L, lesson('l3')]
+    expect(stageRoomsOpen(world, 's1', save, more)).toBe(true)
+    // without the record the computed rule alone would lock it
+    expect(stageRoomsOpen(world, 's1', { ...save, openStages: [] }, more)).toBe(false)
+  })
+  it('rememberOpenStages records stages whose lessons are all done (on load), and only those', () => {
+    const save = done('l1', 'l2')
+    const r = rememberOpenStages(world, save, of)
+    expect(r.openStages).toEqual(['s1'])
+    expect(rememberOpenStages(world, r, of)).toBe(r) // nothing new: same object
+    // a stage open only because it has no lessons is not recorded (lessons may still come)
+    expect(rememberOpenStages(world, withLessons({}, ['a', 'b']), of).openStages).toEqual([])
+    // a stage that is itself still locked (60% rule) is not recorded
+    const w2: World = { ...world, stages: [...world.stages, { id: 's3', order: 3, title: '', rooms: [], cards: [] }] }
+    const of3 = (id: string) => (id === 's3' ? [lesson('l9', 's3')] : of(id))
+    expect(rememberOpenStages(w2, done('l9'), of3).openStages).toEqual([])
+  })
+  it('a recorded stage still needs the stage itself open', () => {
+    expect(stageRoomsOpen(world, 's2', { ...emptySave(), openStages: ['s2'] }, [])).toBe(false)
   })
 })

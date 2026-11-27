@@ -143,6 +143,7 @@ span.lesson-quiz { color: var(--muted); }
 .finish-actions { display: grid; gap: 14px; justify-items: center; margin-top: 22px; text-align: center; }
 .finish-actions .row { justify-content: center; }
 .finish-actions .btn.primary { margin: 0; }
+.next-title { margin: -4px 0 0; font-size: .9rem; }
 .btn.primary.glow { animation: glow 1.6s ease-in-out 3; }
 @keyframes glow { 50% { box-shadow: 0 0 40px var(--one-glow), 0 0 0 4px color-mix(in srgb, var(--one) 25%, transparent); } }
 .unlock-moment {

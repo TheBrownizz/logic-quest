@@ -5,6 +5,7 @@ import type { World } from '../../src/content/types'
 import { registry } from '../../src/ui/lessons/widgets/registry'
 import { ltr } from '../../src/content/switching/helpers'
 import { node, wire } from '../../src/content/switching/helpers'
+import { matchesAnswer, normalizeAnswer } from '../../src/content/lessons/answer'
 
 const world: World = { id: 'w', title: 'w', icon: '', stages: [{ id: 's1', order: 1, title: '', rooms: [], cards: [] }] }
 
@@ -121,6 +122,22 @@ describe('validateLessons', () => {
     has(withSteps([w({ goal: { value: 0 }, example: { value: 0 } }), recap]), /goal is already met by the initial state/, { widgets })
     const throwing = { ...registry, BaseDial: { ...registry.BaseDial, initial: () => { throw new Error('bad config') } } }
     has(withSteps([w({}), recap]), /initial\(config\) threw: bad config/, { widgets: throwing })
+  })
+
+  it('widget config: every string is linted, and config holds short non-Hebrew labels only', () => {
+    const w = (config: unknown): Step => ({ id: 'w', kind: 'widget', prompt: 'הזיזו', widget: 'GateToy', config })
+    const fn = () => 0 as const
+    expect(errs(withSteps([w({ vars: ['A', 'B'], expr: { fn, display: "(A+B)'" } }), recap]))).toEqual([])
+    has(withSteps([w({ vars: ['A'], expr: { fn, display: 'שער 2^4 = 16' } }), recap]), /l1\/w: config.expr.display: formula outside an LTR isolate/)
+    has(withSteps([w({ vars: ['A'], expr: { fn, display: 'הסבר' } }), recap]), /config.expr.display has Hebrew text/)
+    has(withSteps([w({ vars: ['A'], nested: [{ label: 'x'.repeat(41) }], expr: { fn, display: 'A' } }), recap]), /config.nested\[0\].label is 41 characters/)
+  })
+
+  it('check-number and the player share one normalisation (spaces, case, Unicode minus)', () => {
+    const n = (answer: string, got: string): Step => ({ id: 'n', kind: 'check-number', prompt: 'כמה?', answer, compute: () => got, feedbackWrong: 'לא' })
+    expect(errs(withSteps([n('−6.25', '-6.25'), recap]))).toEqual([])
+    expect(normalizeAnswer(' −6.25 ')).toBe('-6.25')
+    expect(matchesAnswer('-6.25', '−6.25')).toBe(true)
   })
 
   it('skip quiz: at least 6 questions, each with distinct options and a correct index in range', () => {

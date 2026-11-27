@@ -46,6 +46,11 @@ Playwright בונה את האפליקציה ומריץ שרת `vite preview` מ�
 - השיעורים של כל שלב: `src/content/switching/lessons/stageN.ts`, שמייצא `lessons: Lesson[]` ו-`figures` (איורי SVG לפי מזהה). הקובץ `index.ts` אוסף את כולם.
 - הוולידטור: `validateLessons(world, lessons)` ב-`src/content/lessons/validate.ts`. כל שלב בודק את השיעורים שלו ב-`tests/content/lessons-stageN.test.ts` בעזרת `expectLessonsValid(stageId)` מ-`tests/content/lessonTestUtils.ts`.
 - וידג'טים: `src/ui/lessons/widgets/<Name>.tsx` (רכיב) ו-`<name>Logic.ts` (`initial`, `isGoalMet` טהורים). הרישום ב-`registry.ts` קבוע: מחליפים רק את שני הקבצים של הווידג'ט.
+- הטיפוסים של כל וידג'ט (`<Name>Config`, `<Name>State`, `<Name>Goal`) מוגדרים ב-`<name>Logic.ts` והם חוזה: מי שמממש וידג'ט לא משנה אותם. `registry.ts` מוקלד לפי המפה `WidgetTypes` (`src/content/lessons/widgetTypes.ts`), ולכן מימוש שסוטה מהם לא מתקמפל.
+- צעד וידג'ט בקובץ שיעור נכתב תמיד דרך `widgetStep(...)` מ-`src/content/lessons/widgetTypes.ts`, שבודק בזמן קומפילציה את `config`, `goal` ו-`example` מול הטיפוסים של הווידג'ט: `` widgetStep({ id: 'dial', widget: 'BaseDial', prompt: '…', config: { base: 2, width: 4 }, goal: { value: 5 }, example: { digits: [0, 1, 0, 1] } }) ``.
+- רכיב וידג'ט מקבל `config`, `goal`, `onState`, `completed` ו-`reducedMotion`. קוראים ל-`onState` רק מתוך effect או מטפל אירוע, אף פעם לא בזמן render, כי היא יכולה להשלים את הצעד. כש-`completed` אמת (חזרו לצעד שכבר הושלם), וידג'ט עם מטרה יכול להציג את המצב הסופי.
+- ב-`config` יש רק תוויות קצרות, כמו שמות משתנים או נוסחה, בלי עברית ועד 40 תווים. משפט שהשחקן קורא שייך ל-`prompt`. כל מחרוזת ב-`config` עוברת גם היא את ה-lint.
+- מזהי איורים (`figures`) גלובליים: מוסיפים להם קידומת של השלב (`s2-...`). מזהה שמופיע בשני קבצים נכשל בבדיקה.
 - הכללים של פתיחת החדרים, מבחן הדילוג והשמירה: `src/game/lessonRules.ts`.
 
 סוגי הצעדים, ומתי "המשך" נפתח:
@@ -59,7 +64,7 @@ Playwright בונה את האפליקציה ומריץ שרת `vite preview` מ�
 
 כללים נוספים: לא יותר משני `explain` ברצף. מזהי שיעורים ייחודיים, ומזהי צעדים ושאלות ייחודיים בתוך השיעור. ב-`skipQuiz` לפחות 6 שאלות (המבחן מגריל 4 ונעצר בטעות הראשונה). `source` הוא `סילבוס: <נושא>`. כל כללי ה-lint של הטקסט (`lintText` ב-`src/content/lint.ts`: נוסחאות, מספרים שליליים וקבוצות ביטים בתוך `ltr()`) חלים על כל מחרוזת בשיעור.
 
-התקדמות: `SaveData.lessons[lessonId] = { stepId, done, skipped?, quizFailedAt? }`. נשמר מזהה הצעד, לא אינדקס, ולכן מותר לשנות שיעור. מזהה שנמחק מחזיר לתחילת השיעור. אל תשנו מזהה של שיעור קיים: שחקנים יאבדו את ההתקדמות בו. החדרים והריצה של שלב נפתחים כשכל השיעורים שלו הושלמו (הגיעו לסוף או עברו את מבחן הדילוג), או כשכבר נפתר בו חדר.
+התקדמות: `SaveData.lessons[lessonId] = { stepId, done, skipped?, quizFailedAt? }`. נשמר מזהה הצעד, לא אינדקס, ולכן מותר לשנות שיעור. מזהה שנמחק מחזיר לתחילת השיעור. אל תשנו מזהה של שיעור קיים: שחקנים יאבדו את ההתקדמות בו. החדרים והריצה של שלב נפתחים כשכל השיעורים שלו הושלמו (הגיעו לסוף או עברו את מבחן הדילוג), או כשכבר נפתר בו חדר. ברגע שהשיעורים פותחים שלב, הוא נרשם ב-`SaveData.openStages` ונשאר פתוח, גם אם יתווספו לו שיעורים בהמשך. מבחן דילוג שנכשל לא מתחיל את השיעור: הסטטוס נשאר "חדש".
 
 בבדיקות e2e: `unlockedSave()` ו-`withLessonsDone()` מ-`tests/e2e/helpers.ts` מסמנים את כל השיעורים כגמורים. `playLesson()` מ-`tests/e2e/lessonWalk.ts` עובר על שיעור לפי התוכן שלו. הפרמטר `?autofill=1` מסמן כמושלמים צעדי `widget` עם מטרה וצעדי `try` (כמו ה-autofill של החדרים), כדי שאפשר יהיה לעבור על כל שיעור בבדיקה.
 

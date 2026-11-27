@@ -78,12 +78,14 @@ function Player({ lesson, world, stage, stepId }: { lesson: Lesson; world: World
   const step = lesson.steps[i]
   const last = i === lesson.steps.length - 1
 
-  // Persist the step on every change and keep it in the URL (no hashchange, so no remount).
+  // Persist the step on every change and keep it in the URL (no hashchange, so no remount). Not while the skip
+  // quiz is open: taking the quiz does not start the lesson.
   useEffect(() => {
-    update(d => recordStep(d, lesson, step.id))
+    if (mode === 'quiz') return
+    update(d => recordStep(world, d, lesson, step.id))
     const h = hrefs.lesson(lesson.id, step.id)
     if (window.location.hash !== h) window.history.replaceState(null, '', h)
-  }, [step.id])
+  }, [step.id, mode])
 
   const complete = useCallback(() => dispatch({ type: 'complete', index: i }), [i])
   // React re-renders between the two clicks of a double click, so the second click would come from the new step
@@ -97,7 +99,9 @@ function Player({ lesson, world, stage, stepId }: { lesson: Lesson; world: World
   const justUnlocked = openNow && !openBefore.current
   const stageHref = hrefs.stage(world.id, stage.id) + (justUnlocked ? '?unlocked=1' : '')
   const wait = quizCooldownLeft(save, lesson.id, Date.now())
-  const next = lessonsForStage(stage.id).find(l => l.order > lesson.order && !lessonDone(save, l.id))
+  // the next unfinished lesson of the stage: after this one if any, else an earlier one
+  const pending = lessonsForStage(stage.id).filter(l => l.id !== lesson.id && !lessonDone(save, l.id))
+  const next = pending.find(l => l.order > lesson.order) ?? pending[0]
 
   const wayOn = (
     <div className="finish-actions">
@@ -106,10 +110,20 @@ function Player({ lesson, world, stage, stepId }: { lesson: Lesson; world: World
           <span className="unlock-icon" aria-hidden>🔓</span> כל השיעורים בשלב הושלמו: חדרי המעבדה והריצה נפתחו!
         </div>
       )}
-      <div className="row">
-        <a className={`btn primary${justUnlocked ? ' glow' : ''}`} data-testid="to-rooms" href={stageHref}>לחדרי המעבדה ←</a>
-        {next && <a className="btn ghost" href={hrefs.lesson(next.id)}>לשיעור הבא: {next.title}</a>}
-      </div>
+      {next ? (
+        // more lessons wait in this stage: the next one is the way on
+        <>
+          <div className="row">
+            <a className="btn primary" data-testid="to-next-lesson" href={hrefs.lesson(next.id)}>לשיעור הבא ←</a>
+            <a className="btn ghost" data-testid="to-rooms" href={stageHref}>לחדרי המעבדה</a>
+          </div>
+          <p className="muted next-title" data-testid="next-title">השיעור הבא: {next.title}</p>
+        </>
+      ) : (
+        <div className="row">
+          <a className={`btn primary${justUnlocked ? ' glow' : ''}`} data-testid="to-rooms" href={stageHref}>לחדרי המעבדה ←</a>
+        </div>
+      )}
     </div>
   )
 
@@ -137,7 +151,7 @@ function Player({ lesson, world, stage, stepId }: { lesson: Lesson; world: World
 
       {mode === 'quiz' ? (
         <SkipQuiz key={quizRun} lesson={lesson}
-          onPass={() => update(d => recordQuizPass(d, lesson))}
+          onPass={() => update(d => recordQuizPass(world, d, lesson))}
           onFail={() => update(d => recordQuizFail(d, lesson, Date.now()))}
           onClose={() => { setMode('steps'); setQuizRun(r => r + 1) }}
           passed={wayOn} />
