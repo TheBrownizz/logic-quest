@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { LocalProgressStore, emptySave } from '../../src/game/progress'
+import { LocalProgressStore, applyUpdate, emptySave, type SaveData } from '../../src/game/progress'
 
 function fake(init: Record<string, string> = {}, throws = false): Storage {
   const m = { ...init }
@@ -83,5 +83,56 @@ describe('LocalProgressStore', () => {
     const b = new LocalProgressStore(fake())
     expect(b.importJSON(a.exportJSON())).toEqual({ ok: true })
     expect(b.load().helped).toEqual({ r1: true })
+  })
+})
+
+describe('read-modify-write (two tabs on one storage)', () => {
+  const solved = { solved: true, optimal: false, noHints: false }
+  const solve = (id: string) => (d: SaveData): SaveData => ({ ...d, rooms: { ...d.rooms, [id]: solved } })
+
+  it('a stale tab applies its change on top of the newer stored save', () => {
+    const st = fake()
+    const a = new LocalProgressStore(st)
+    const b = new LocalProgressStore(st)
+    let memA = a.load()
+    let memB = b.load()
+    memA = applyUpdate(a, memA, solve('r1'))
+    memB = applyUpdate(b, memB, solve('r2')) // tab B never saw r1
+    expect(Object.keys(memB.rooms).sort()).toEqual(['r1', 'r2'])
+    expect(Object.keys(new LocalProgressStore(st).load().rooms).sort()).toEqual(['r1', 'r2'])
+    memA = applyUpdate(a, memA, solve('r3'))
+    expect(Object.keys(memA.rooms).sort()).toEqual(['r1', 'r2', 'r3'])
+  })
+
+  it('uses its own memory when storage is unreadable', () => {
+    const s = new LocalProgressStore(fake({}, true))
+    let mem = s.load()
+    mem = applyUpdate(s, mem, solve('r1'))
+    mem = applyUpdate(s, mem, solve('r2'))
+    expect(Object.keys(mem.rooms).sort()).toEqual(['r1', 'r2'])
+  })
+
+  it('uses its own memory when its last write failed (storage still holds what it last saw)', () => {
+    const m: Record<string, string> = {}
+    let full = false
+    const st = {
+      getItem: (k: string) => (k in m ? m[k] : null),
+      setItem: (k: string, v: string) => { if (full) throw new Error('quota'); m[k] = v },
+    } as unknown as Storage
+    const s = new LocalProgressStore(st)
+    let mem = applyUpdate(s, s.load(), solve('r1'))
+    full = true
+    mem = applyUpdate(s, mem, solve('r2'))
+    mem = applyUpdate(s, mem, solve('r3'))
+    expect(Object.keys(mem.rooms).sort()).toEqual(['r1', 'r2', 'r3'])
+  })
+
+  it('ignores an unreadable value written by someone else', () => {
+    const st = fake()
+    const s = new LocalProgressStore(st)
+    let mem = applyUpdate(s, s.load(), solve('r1'))
+    st.setItem('logic-quest-save', '{oops')
+    mem = applyUpdate(s, mem, solve('r2'))
+    expect(Object.keys(mem.rooms).sort()).toEqual(['r1', 'r2'])
   })
 })

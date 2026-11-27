@@ -14,6 +14,8 @@ export interface SaveData {
 }
 export interface ProgressStore {
   load(): SaveData
+  /** The stored save if another writer (another tab) changed it since this store last read or wrote it; else `fallback`. */
+  latest(fallback: SaveData): SaveData
   save(d: SaveData): void
   exportJSON(): string
   importJSON(s: string): { ok: true } | { ok: false; error: string }
@@ -60,6 +62,8 @@ function normalize(v: unknown): SaveData | null {
 }
 
 export class LocalProgressStore implements ProgressStore {
+  /** The raw value this store last read or successfully wrote; a different stored value came from elsewhere. */
+  private lastRaw: string | null | undefined
   constructor(private storage?: Storage) {}
 
   private store(): Storage | undefined {
@@ -71,6 +75,7 @@ export class LocalProgressStore implements ProgressStore {
     let raw: string | null | undefined
     try {
       raw = this.store()?.getItem(SAVE_KEY)
+      this.lastRaw = raw
       if (!raw) return emptySave()
       const d = normalize(JSON.parse(raw))
       if (d) return d
@@ -87,8 +92,25 @@ export class LocalProgressStore implements ProgressStore {
     } catch { /* ignore */ }
   }
 
+  latest(fallback: SaveData): SaveData {
+    let raw: string | null | undefined
+    try { raw = this.store()?.getItem(SAVE_KEY) } catch { return fallback }
+    if (!raw || raw === this.lastRaw) return fallback
+    let d: SaveData | null = null
+    try { d = normalize(JSON.parse(raw)) } catch { /* unreadable */ }
+    if (!d) { this.backup(raw); return fallback }
+    this.lastRaw = raw
+    return d
+  }
+
   save(d: SaveData): void {
-    try { this.store()?.setItem(SAVE_KEY, JSON.stringify(d)) } catch { /* quota or blocked storage: ignore */ }
+    const raw = JSON.stringify(d)
+    try {
+      const st = this.store()
+      if (!st) return
+      st.setItem(SAVE_KEY, raw)
+      this.lastRaw = raw
+    } catch { /* quota or blocked storage: ignore */ }
   }
 
   exportJSON(): string {
@@ -103,4 +125,14 @@ export class LocalProgressStore implements ProgressStore {
     this.save(d)
     return { ok: true }
   }
+}
+
+/**
+ * One update of the save: read the latest stored save (another tab may have written it), apply fn, persist.
+ * `current` is this tab's in-memory save, used when storage has nothing newer (or can't be read).
+ */
+export function applyUpdate(store: ProgressStore, current: SaveData, fn: (d: SaveData) => SaveData): SaveData {
+  const next = fn(store.latest(current))
+  store.save(next)
+  return next
 }
