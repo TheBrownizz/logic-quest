@@ -5,7 +5,7 @@ import { isStageUnlocked, stars } from '../../game/rules'
 import { LockNote } from '../LockNote'
 import type { Bit, TruthTable } from '../../logic/boolean'
 import { circuitTruthTable, simulate, usesOnly, type Circuit } from '../../logic/circuit'
-import { hrefs } from '../router'
+import { hasQueryFlag, hrefs } from '../router'
 import { useSave } from '../save'
 import { NotFound } from '../StageScreen'
 import { Prose } from '../Prose'
@@ -17,7 +17,7 @@ import { KMapPuzzle } from './KMapPuzzle'
 import { NumberPuzzle } from './NumberPuzzle'
 import { Hints, useHelped, useSolve } from './roomParts'
 import {
-  alignTable, autoLayout, checkCircuit, errorText, findRoom, hasQueryFlag, initialCircuit,
+  alignTable, autoLayout, checkCircuit, errorText, findRoom, initialCircuit,
   needsLayout, refersToChip, restartRoom, storeChip, usableDraft, type CheckResult, type ChipStore, type CircuitPuzzle,
   visibleRows,
 } from './labLogic'

@@ -1,5 +1,5 @@
 import type { Bit } from '../../logic/boolean'
-import type { Circuit, GateKind, Node } from '../../logic/circuit'
+import { isChipKind, type Circuit, type GateKind, type Node } from '../../logic/circuit'
 import type { Chips } from './labLogic'
 
 /* Geometry and drawing for circuit nodes. Coordinates are relative to the node centre (node.x, node.y). */
@@ -8,7 +8,6 @@ export interface Pin { x: number; y: number; label?: string }
 export interface Geo { w: number; h: number; ins: Pin[]; outs: Pin[] }
 
 const PIN_GAP = 20
-const isChip = (k: Node['kind']): k is { chip: string } => typeof k === 'object'
 
 /** Highest wired input pin + 1 for a node (gates grow extra pins when wired beyond two). */
 export function wiredInputs(c: Circuit): Map<string, number> {
@@ -20,7 +19,7 @@ export function wiredInputs(c: Circuit): Map<string, number> {
 export function nodeGeo(n: Node, chips: Chips, wired = 0): Geo {
   if (n.kind === 'IN') return { w: 64, h: 44, ins: [], outs: [{ x: 42, y: 0 }] }
   if (n.kind === 'OUT') return { w: 64, h: 44, ins: [{ x: -42, y: 0 }], outs: [] }
-  if (isChip(n.kind)) {
+  if (isChipKind(n.kind)) {
     const chip = chips[n.kind.chip]
     const ins = chip?.inputs ?? []
     const outs = chip?.outputs ?? []

@@ -33,7 +33,9 @@ export type CircuitError = { kind: 'loop' | 'unconnected' | 'multiDriven'; nodeI
 
 type Chips = Record<string, Chip>
 
-const isChip = (k: Node['kind']): k is { chip: string } => typeof k === 'object'
+/** True for a chip node's kind (a gate kind is a string). */
+export const isChipKind = (k: Node['kind']): k is { chip: string } => typeof k === 'object'
+const isChip = isChipKind
 
 function getChip(node: Node, chips: Chips): Chip {
   const name = (node.kind as { chip: string }).chip

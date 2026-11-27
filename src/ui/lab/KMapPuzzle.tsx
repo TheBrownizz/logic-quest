@@ -35,6 +35,16 @@ const sameSel = (a: Sel, b: Sel) => {
 }
 const bits = (v: number, w: number) => v.toString(2).padStart(w, '0')
 
+/** Adds a selection as a new group (unless it is already one), coloured with the first colour not in use. */
+function addGroup(gs: KGroup[], sel: Sel): KGroup[] {
+  if (gs.some(g => sameSel(g, sel))) return gs
+  const used = new Set(gs.map(g => g.color))
+  let color = 0
+  while (used.has(color) && color < COLORS - 1) color++
+  if (used.has(color)) color = gs.length % COLORS
+  return [...gs, { ...sel, color }]
+}
+
 type Verdict = { kind: 'bad'; text: string } | { kind: 'ok'; minimal: boolean; result: RoomResult }
 
 export function KMapPuzzle({ room, puzzle, onRestart }: { room: Room; puzzle: KMapPz; onRestart: () => void }) {
@@ -81,14 +91,7 @@ export function KMapPuzzle({ room, puzzle, onRestart }: { room: Room; puzzle: KM
       setDrag(null)
       if (!d) return
       const sel = dragSelection(d.start, d.cur)
-      setGroups(gs => {
-        if (gs.some(g => sameSel(g, sel))) return gs
-        const used = new Set(gs.map(g => g.color))
-        let color = 0
-        while (used.has(color) && color < COLORS - 1) color++
-        if (used.has(color)) color = gs.length % COLORS
-        return [...gs, { ...sel, color }]
-      })
+      setGroups(gs => addGroup(gs, sel))
       setVerdict(null)
     }
     const cancel = () => setDrag(null)
@@ -121,14 +124,7 @@ export function KMapPuzzle({ room, puzzle, onRestart }: { room: Room; puzzle: KM
     if (cells.length === 0) return
     if (!groupToTerm(nVars, { cells })) { setVerdict({ kind: 'bad', text: 'קבוצה לא חוקית' }); return }
     const sel: Sel = { rows: [...new Set(cells.map(c => c[0]))], cols: [...new Set(cells.map(c => c[1]))] }
-    setGroups(gs => {
-      if (gs.some(g => sameSel(g, sel))) return gs
-      const used = new Set(gs.map(g => g.color))
-      let color = 0
-      while (used.has(color) && color < COLORS - 1) color++
-      if (used.has(color)) color = gs.length % COLORS
-      return [...gs, { ...sel, color }]
-    })
+    setGroups(gs => addGroup(gs, sel))
     setPicked([])
     setVerdict(null)
   }
@@ -137,7 +133,7 @@ export function KMapPuzzle({ room, puzzle, onRestart }: { room: Room; puzzle: KM
     if (pick) toggle(r, c)
     else if (detail === 0) {
       const sel: Sel = { rows: [r], cols: [c] }
-      setGroups(gs => (gs.some(g => sameSel(g, sel)) ? gs : [...gs, { ...sel, color: gs.length % COLORS }]))
+      setGroups(gs => addGroup(gs, sel))
       setVerdict(null)
     }
   }

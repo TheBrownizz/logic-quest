@@ -2,7 +2,7 @@ import type { LabPuzzle, Room, Stage, World } from '../../content/types'
 import type { RoomResult, SaveData } from '../../game/progress'
 import { matches, type Bit, type TruthTable } from '../../logic/boolean'
 import {
-  circuitTruthTable, evalGate, gateCount, simulate, usesOnly,
+  circuitTruthTable, evalGate, gateCount, isChipKind, simulate, usesOnly,
   type Chip, type Circuit, type CircuitError, type Node,
 } from '../../logic/circuit'
 import { worlds } from '../worlds'
@@ -26,8 +26,6 @@ export const COL = 150
 export const ROW = 90
 const LEFT = 60
 const TOP = 70
-
-const isChipKind = (k: Node['kind']): k is { chip: string } => typeof k === 'object'
 
 /** The starting circuit: IN nodes on the left edge, OUT nodes on the right edge. */
 export function initialCircuit(spec: TruthTable, width = 960): Circuit {
@@ -96,11 +94,6 @@ export function usableDraft(draft: Circuit | undefined, spec: TruthTable): draft
   if (!draft || !Array.isArray(draft.nodes) || !Array.isArray(draft.wires)) return false
   const labels = (kind: 'IN' | 'OUT') => draft.nodes.filter(n => n.kind === kind).map(n => n.label ?? n.id).sort().join('|')
   return labels('IN') === [...spec.inputs].sort().join('|') && labels('OUT') === [...spec.outputs].sort().join('|')
-}
-
-export function hasQueryFlag(search: string, hash: string, name: string): boolean {
-  const q = hash.includes('?') ? hash.slice(hash.indexOf('?')) : ''
-  return [search, q].some(s => new URLSearchParams(s).get(name) === '1')
 }
 
 /* ---------- checking ---------- */

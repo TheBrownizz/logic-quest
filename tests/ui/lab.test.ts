@@ -3,11 +3,12 @@ import type { Circuit, Chip } from '../../src/logic/circuit'
 import type { LabPuzzle } from '../../src/content/types'
 import { stage3 } from '../../src/content/switching/stage3'
 import {
-  alignTable, autoLayout, checkCircuit, findRoom, hasQueryFlag, initialCircuit, liveValues,
+  alignTable, autoLayout, checkCircuit, findRoom, initialCircuit, liveValues,
   mergeResult, needsLayout, nextNodeId, refersToChip, restartRoom, storeChip, usableDraft,
 } from '../../src/ui/lab/labLogic'
 import { emptySave } from '../../src/game/progress'
-import { parseHash } from '../../src/ui/router'
+import { hasQueryFlag, parseHash, queryParam } from '../../src/ui/router'
+import { parseSeed } from '../../src/ui/run/RunScreen'
 import { checkCode, checkNumber, dragSelection } from '../../src/ui/lab/labLogic'
 import { groupToTerm } from '../../src/logic/kmap'
 
@@ -168,6 +169,16 @@ describe('lab logic', () => {
     expect(hasQueryFlag('?autofill=1', '#/room/x', 'autofill')).toBe(true)
     expect(hasQueryFlag('', '#/room/x?autofill=1', 'autofill')).toBe(true)
     expect(hasQueryFlag('', '#/room/x', 'autofill')).toBe(false)
+  })
+
+  it('one query helper with one precedence: the hash query wins over the real query', () => {
+    expect(queryParam('?seed=1', '#/run/s?seed=2', 'seed')).toBe('2')
+    expect(queryParam('?seed=1', '#/run/s?x=2', 'seed')).toBe('1')
+    expect(queryParam('', '#/run/s', 'seed')).toBeNull()
+    expect(hasQueryFlag('?autofill=1', '#/room/x?autofill=0', 'autofill')).toBe(false)
+    expect(parseSeed('?seed=1', '#/run/s?seed=2')).toBe(2)
+    expect(parseSeed('?seed=7', '#/run/s?x=2')).toBe(7)
+    expect(parseSeed('?seed=abc', '#/run/s')).toBeNull()
   })
 
   it('router ignores a query in the hash', () => {

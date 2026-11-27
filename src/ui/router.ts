@@ -23,6 +23,18 @@ export function parseHash(hash: string): Route {
   return { name: 'notfound' }
 }
 
+/**
+ * A query parameter of the page URL. A query inside the hash (`#/room/x?autofill=1`) takes precedence over the
+ * real query string (`?autofill=1#/room/x`); null when neither has it.
+ */
+export function queryParam(search: string, hash: string, name: string): string | null {
+  const inHash = hash.includes('?') ? new URLSearchParams(hash.slice(hash.indexOf('?'))).get(name) : null
+  return inHash ?? new URLSearchParams(search).get(name)
+}
+
+/** True when the query parameter `name` is "1" (see queryParam for precedence). */
+export const hasQueryFlag = (search: string, hash: string, name: string): boolean => queryParam(search, hash, name) === '1'
+
 export const hrefs = {
   map: '#/',
   world: (w: string) => `#/world/${encodeURIComponent(w)}`,

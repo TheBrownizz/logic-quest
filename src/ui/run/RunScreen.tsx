@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { buildDeck } from '../../game/deck'
 import { answer, mulberry32, startRun, MAX_LIVES, type RunState } from '../../game/run'
-import { hrefs } from '../router'
+import { hrefs, queryParam } from '../router'
 import { Prose } from '../Prose'
 import { useSave } from '../save'
 import { LockNote } from '../LockNote'
@@ -10,10 +10,9 @@ import { findWorld, worlds } from '../worlds'
 import { CardView } from './CardView'
 import './run.css'
 
-/** `?seed=N` from the real query string or from the hash query; null if absent or not a number. */
+/** `?seed=N` from the URL (see queryParam); null if absent or not a number. */
 export function parseSeed(search: string, hash: string): number | null {
-  const q = hash.includes('?') ? hash.slice(hash.indexOf('?')) : search
-  const v = new URLSearchParams(q).get('seed')
+  const v = queryParam(search, hash, 'seed')
   if (v === null || v.trim() === '' || !Number.isFinite(Number(v))) return null
   return Number(v)
 }
