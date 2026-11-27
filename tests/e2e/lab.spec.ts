@@ -1,5 +1,8 @@
 import { test, expect, type Page } from '@playwright/test'
-import { readSave } from './helpers'
+import { SAVE_KEY, readSave, seed, unlockedSave } from './helpers'
+
+// every stage open; the rooms these tests play stay unsolved
+test.beforeEach(async ({ page }) => { await seed(page, unlockedSave(['sw-3-r1', 'sw-5-r1', 'sw-5-r6', 'sw-5-r8'])) })
 
 const pin = (page: Page, node: string, dir: 'in' | 'out', i = 0) => page.getByTestId(`pin-${node}-${dir}-${i}`)
 
@@ -164,10 +167,11 @@ test('ADD4 room: the 512-row truth table shows a window and a note', async ({ pa
   const { referenceChips } = await import('../../src/content/chips')
   const { switchingWorld } = await import('../../src/content/switching/world')
   const chips = referenceChips(switchingWorld)
-  const save = { version: 1, rooms: {}, chips: { HA: chips.HA, FA: chips.FA }, drafts: {}, knowledge: [], bestRun: {}, flagged: [] }
-  await page.addInitScript(s => {
-    if (!sessionStorage.getItem('seeded')) { localStorage.setItem('logic-quest-save', s); sessionStorage.setItem('seeded', '1') }
-  }, JSON.stringify(save))
+  await page.goto('/#/')
+  await page.evaluate(([k, c]) => {
+    const d = JSON.parse(localStorage.getItem(k)!)
+    localStorage.setItem(k, JSON.stringify({ ...d, chips: c }))
+  }, [SAVE_KEY, { HA: chips.HA, FA: chips.FA }] as const)
   await page.goto('/?autofill=1#/room/sw-5-r6')
   await page.getByRole('button', { name: 'בדוק' }).click()
   await expect(page.getByText('נכון!')).toBeVisible()

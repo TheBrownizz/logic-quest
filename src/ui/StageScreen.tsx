@@ -1,5 +1,6 @@
 import type { Stage } from '../content/types'
-import { isStageUnlocked, stars } from '../game/rules'
+import { isStageUnlocked, roomsToUnlock, stars } from '../game/rules'
+import { LockNote, moreRooms } from './LockNote'
 import { hrefs } from './router'
 import { useSave } from './save'
 import { Stars } from './Stars'
@@ -25,7 +26,7 @@ export function WorldScreen({ worldId }: { worldId: string }) {
               <span className="node-body">
                 <span className="node-title">{s.title}</span>
                 <span className="node-meta mono">
-                  {unlocked ? <>{got}/{s.rooms.length * 3} ★</> : <span className="muted">נעול</span>}
+                  {unlocked ? <>{got}/{s.rooms.length * 3} ★</> : <span className="muted">נעול · {moreRooms(roomsToUnlock(world, s.id, save))}</span>}
                 </span>
               </span>
             </>
@@ -54,10 +55,7 @@ export function StageScreen({ worldId, stageId }: { worldId: string; stageId: st
       <a className="back" href={hrefs.world(world.id)}>→ {world.title}</a>
       <h1 className="title"><span className="mono accent">{stage.order}</span> {stage.title}</h1>
       {!unlocked ? (
-        <div className="lock-note">
-          <span aria-hidden>🔒</span>
-          <p>השלב נעול. פתור 60% מהשלב הקודם כדי להיכנס.</p>
-        </div>
+        <LockNote world={world} stageId={stage.id} save={save} />
       ) : (
         <>
           <a className="btn primary" href={hrefs.run(stage.id)}>ריצת חקירה</a>

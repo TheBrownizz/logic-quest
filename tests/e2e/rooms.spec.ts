@@ -1,5 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
-import { readSave } from './helpers'
+import { readSave, seed, unlockedSave } from './helpers'
+
+test.beforeEach(async ({ page }) => { await seed(page, unlockedSave(['sw-1-r1', 'sw-4-r1'])) })
 
 async function pickGroup(page: Page, cells: Array<[number, number]>) {
   const toggle = page.getByRole('button', { name: 'בחירת תאים' })

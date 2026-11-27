@@ -4,6 +4,7 @@ import { answer, mulberry32, startRun, MAX_LIVES, type RunState } from '../../ga
 import { hrefs } from '../router'
 import { Prose } from '../Prose'
 import { useSave } from '../save'
+import { LockNote } from '../LockNote'
 import { NotFound } from '../StageScreen'
 import { findWorld, worlds } from '../worlds'
 import { CardView } from './CardView'
@@ -137,7 +138,7 @@ export function RunScreen({ stageId }: { stageId: string }) {
     return (
       <section>
         <a className="back" href={hrefs.world(world.id)}>→ {world.title}</a>
-        <div className="lock-note"><span aria-hidden>🔒</span><p>השלב נעול. פתור 60% מהשלב הקודם כדי להיכנס.</p></div>
+        <LockNote world={world} stageId={stageId} save={save} />
       </section>
     )
   }

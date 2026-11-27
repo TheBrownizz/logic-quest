@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Room } from '../../content/types'
 import type { RoomResult } from '../../game/progress'
-import { stars } from '../../game/rules'
+import { isStageUnlocked, stars } from '../../game/rules'
+import { LockNote } from '../LockNote'
 import type { Bit, TruthTable } from '../../logic/boolean'
 import { circuitTruthTable, simulate, usesOnly, type Circuit } from '../../logic/circuit'
 import { hrefs } from '../router'
@@ -29,12 +30,21 @@ export function LabRoom({ roomId }: { roomId: string }) {
 }
 
 function RoomView({ world, stage, room }: NonNullable<ReturnType<typeof findRoom>>) {
-  const [, update] = useSave()
+  const [save, update] = useSave()
   // Starting over remounts the puzzle with fresh local state; autofill only applies to the first mount.
   const [attempt, setAttempt] = useState(0)
   const restart = () => { update(d => restartRoom(d, room.id)); setAttempt(a => a + 1) }
   const key = `${room.id}#${attempt}`
   const pz = room.puzzle
+  if (!isStageUnlocked(world, stage.id, save)) {
+    return (
+      <section className="lab">
+        <a className="back" href={hrefs.stage(world.id, stage.id)}>→ {stage.title}</a>
+        <h1 className="title">{room.title}</h1>
+        <LockNote world={world} stageId={stage.id} save={save} />
+      </section>
+    )
+  }
   return (
     <section className="lab">
       <a className="back" href={hrefs.stage(world.id, stage.id)}>→ {stage.title}</a>

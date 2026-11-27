@@ -19,10 +19,21 @@ test('disabled worlds say soon; stage screen lists rooms and run button', async 
   await expect(page.getByTestId('room-row').first()).toContainText('☆☆☆')
 })
 
-test('locked stage cannot be entered', async ({ page }) => {
+test('locked stage cannot be entered and says how many rooms are missing', async ({ page }) => {
   await page.goto('/#/world/switching/stage/sw-4-minimize')
-  await expect(page.getByText('פתור 60% מהשלב הקודם')).toBeVisible()
+  await expect(page.getByTestId('lock-note')).toContainText('פתור עוד 5 חדרים בשלב הקודם')
   await expect(page.getByRole('link', { name: 'ריצת חקירה' })).toHaveCount(0)
+  await page.goto('/#/world/switching')
+  await expect(page.getByTestId('stage-sw-2-arith')).toContainText('עוד 5 חדרים')
+})
+
+test('a room of a locked stage, opened by URL, shows the lock and a way back', async ({ page }) => {
+  await page.goto('/#/room/sw-3-r1')
+  await expect(page.getByTestId('lock-note')).toContainText('פתור עוד 5 חדרים בשלב הקודם')
+  await expect(page.getByTestId('palette-NAND')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'בדוק' })).toHaveCount(0)
+  await page.getByRole('link', { name: /→/ }).click()
+  await expect(page).toHaveURL(/#\/world\/switching\/stage\/sw-3-boolean$/)
 })
 
 test('save menu opens, collection route', async ({ page }) => {
