@@ -1,0 +1,78 @@
+/* BitField: theme tokens only. The word is always left to right (bit 31 on the left), whatever the page direction. */
+.bitfield { container-type: inline-size; display: grid; gap: 14px; }
+
+.bf-word {
+  direction: ltr; display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 12px 14px;
+  --cell: min(32px, calc((100cqw - 24px) / 12)); --cols: 12; --gap: 2px;
+}
+@container (min-width: 800px) { .bf-word { --cell: 22px; --cols: 23; } }
+.bf-part { display: grid; gap: 6px; justify-items: center; }
+.bf-label { font-size: .85rem; color: var(--muted); display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+.bf-badge { font-family: var(--font-mono); font-weight: 700; padding: 0 6px; border-radius: 6px; border: 1px solid currentColor; }
+.bf-part.sign { --c: var(--g1); }
+.bf-part.exponent { --c: var(--amber); }
+.bf-part.mantissa { --c: var(--g2); }
+.bf-part .bf-badge { color: var(--c); }
+.bf-bits { display: flex; gap: var(--gap); }
+.bf-part.mantissa .bf-bits { display: grid; grid-template-columns: repeat(var(--cols), var(--cell)); }
+
+.bf-bit {
+  width: var(--cell); height: 44px; padding: 0; cursor: pointer; font: inherit; color: var(--c);
+  display: grid; grid-template-rows: 1fr auto; place-items: center; line-height: 1;
+  background: color-mix(in srgb, var(--c) 9%, var(--surface)); border: 1.5px solid color-mix(in srgb, var(--c) 55%, var(--border)); border-radius: 8px;
+  transition: background .15s, box-shadow .15s, transform .1s, border-color .15s;
+}
+.bf-bit .bf-val { font-family: var(--font-mono); font-weight: 700; font-size: 1.05rem; align-self: end; }
+.bf-bit .bf-pos { font-family: var(--font-mono); font-size: .58rem; color: var(--muted); font-weight: 400; margin-bottom: 3px; }
+.bf-bit:hover:not([aria-disabled]) { transform: translateY(-2px); border-color: var(--c); box-shadow: 0 0 12px color-mix(in srgb, var(--c) 45%, transparent); }
+.bf-bit.on { background: var(--c); color: var(--on-one); border-color: var(--c); box-shadow: 0 0 14px color-mix(in srgb, var(--c) 50%, transparent); }
+.bf-bit.on .bf-pos { color: color-mix(in srgb, var(--on-one) 70%, transparent); }
+.bf-bit:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.bf-bit[aria-disabled] { cursor: not-allowed; opacity: .5; box-shadow: none; }
+.bf-bit[aria-disabled].on { opacity: .75; }
+
+.bf-hex { text-align: center; font-family: var(--font-mono); font-size: .85rem; color: var(--muted); letter-spacing: .08em; }
+
+.bf-calc {
+  display: grid; gap: 6px; padding: 12px 14px; border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--border);
+}
+.bf-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.bf-key { min-width: 4.2em; font-size: .85rem; font-weight: 500; }
+.bf-row.sign .bf-key { color: var(--g1); }
+.bf-row.exponent .bf-key { color: var(--amber); }
+.bf-row.mantissa .bf-key { color: var(--g2); }
+.bf-row.value .bf-key { color: var(--one); }
+.bf-ltr { font-family: var(--font-mono); font-size: .95rem; direction: ltr; unicode-bidi: isolate; }
+.bf-then { color: var(--muted); }
+.bf-pair { display: inline-flex; align-items: baseline; gap: 10px; white-space: nowrap; }
+.bf-note { font-size: .8rem; color: var(--muted); }
+.bf-result { font-family: var(--font-mono); font-size: 1.25rem; color: var(--one); text-shadow: 0 0 12px var(--one-glow); unicode-bidi: isolate; }
+.bf-calc.special { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; color: var(--muted); }
+.bf-calc.special .bf-result { color: var(--amber); text-shadow: none; }
+
+/* the binary point of 1.M slides e places: the digits it passes light up in turn */
+.bf-slide { display: grid; gap: 8px; justify-items: center; }
+.bf-strip-wrap { max-width: 100%; overflow-x: auto; padding: 6px 4px 12px; }
+.bf-strip {
+  --cw: 1.7rem; position: relative; display: flex; width: calc(var(--n) * var(--cw)); margin-inline: auto;
+  font-family: var(--font-mono); font-size: 1.5rem; font-weight: 700;
+}
+.bf-d {
+  width: var(--cw); text-align: center; color: var(--g2); line-height: 1.5;
+  transition: color .25s, text-shadow .25s, transform .25s;
+}
+.bf-d.hidden-one { color: var(--amber); border-bottom: 2px dashed var(--amber); }
+.bf-d.pad { color: var(--zero); font-weight: 400; }
+.bf-d.crossed { color: var(--one); text-shadow: 0 0 10px var(--one-glow); transform: translateY(-3px); }
+.bf-point {
+  position: absolute; bottom: 0; left: calc(var(--p) * var(--cw)); width: 10px; height: 10px; margin: 0 0 -3px -5px;
+  border-radius: 50%; background: var(--amber); box-shadow: 0 0 10px var(--amber-glow);
+  transition: left var(--slide) cubic-bezier(.5, 0, .2, 1);
+}
+.bf-slide-bar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: center; }
+.bf-slide-text { font-family: var(--font-mono); color: var(--muted); }
+.bf-tools { display: flex; justify-content: center; }
+.bf-tools .btn:disabled { opacity: .4; cursor: default; }
+
+@media (prefers-reduced-motion: reduce) { .bitfield * { transition: none !important; } }
