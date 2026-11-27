@@ -217,6 +217,34 @@ describe('switching content', () => {
     const m = new RegExp(`[${ALNUM}] *[${OP}]|[${OP}] *[${ALNUM}]`).exec(t)
     return m ? m[0] : null
   }
+  /**
+   * Two or more digit/hex groups separated by spaces, no-break spaces or `|` (bit fields, nibble groups) must sit
+   * in one LTR isolate: in RTL text the groups are laid out right to left, i.e. in reverse order.
+   */
+  const GROUP = '[0-9A-F]*[0-9][0-9A-F]*'
+  const SPACED_GROUPS = new RegExp(`(?<!\\w|\\d\\.)${GROUP}(?:[ \u00A0]*\\|[ \u00A0]*|[ \u00A0]+)${GROUP}(?!\\w|\\.\\d)`)
+  const looseGroups = (text: string): string | null => {
+    if (!HEB.test(text)) return null
+    const m = SPACED_GROUPS.exec(text.replace(/⁦[^⁩]*⁩/g, ' '))
+    return m ? m[0] : null
+  }
+  it('spaced or |-separated bit groups in Hebrew text are LTR-isolated', () => {
+    expect(looseGroups('השלשות הן 011 110 100 011.')).not.toBeNull()
+    expect(looseGroups('הקבוצות הן 0101 | 1011 | 1010. המירו')).not.toBeNull()
+    expect(looseGroups('10 נכתב 0001\u00A00000 כאן')).not.toBeNull()
+    expect(looseGroups('10 נכתב 0001 0000. שישה')).not.toBeNull()
+    expect(looseGroups('כלומר 0.1011 = 1/2')).toBeNull()
+    expect(looseGroups('השלשות הן ⁦011 110 100 011⁩.')).toBeNull()
+    expect(looseGroups('לדוגמה 1, 3, 5, 7 נותנים')).toBeNull()
+    expect(looseGroups('MUX של 4 כניסות ו-8 יציאות')).toBeNull()
+    const bad: string[] = []
+    for (const s of stages) for (const [id, t] of textsOf(s)) {
+      const hit = looseGroups(t)
+      if (hit) bad.push(`${id}: [${hit}] "${t}"`)
+    }
+    expect(bad, bad.join('\n')).toEqual([])
+  })
+
   it('formulas in Hebrew text are LTR-isolated', () => {
     expect(looseFormula('במשוואה (5)_r · (6)_r = (36)_r מצאו')).not.toBeNull()
     expect(looseFormula('למשל 2^4 = 16 פונקציות')).not.toBeNull()

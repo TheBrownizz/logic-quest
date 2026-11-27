@@ -73,3 +73,16 @@ test('sw-3-c3 and sw-3-c8 knowledge cards: formulas read left to right', async (
   await expectLtr(c8.locator('.k-text'), '2^4 = 16')
   await shot(c8, 'sw-3-c8')
 })
+
+test('sw-1-r4 hints and the sw-2-r4 IEEE hint: spaced bit groups read in source order', async ({ page }) => {
+  await page.goto('/#/room/sw-1-r4')
+  for (let i = 0; i < 3; i++) await page.getByRole('button', { name: /רמז/ }).click()
+  const hints = page.getByTestId('hint')
+  await expectLtr(hints.nth(1), '0111 1010 0011')
+  await expectLtr(hints.nth(2), '011 110 100 011')
+  await shot(hints.nth(2), 'sw-1-r4-hint')
+  await page.goto('/#/room/sw-2-r4')
+  for (let i = 0; i < 3; i++) await page.getByRole('button', { name: /רמז/ }).click()
+  await expectLtr(page.getByTestId('hint').nth(2), '1 | 10000001 | 1011000…')
+  await expectLtr(page.getByTestId('hint').nth(2), '1100 0000 1101 1000')
+})
