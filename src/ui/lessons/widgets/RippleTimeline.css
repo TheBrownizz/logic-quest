@@ -1,0 +1,67 @@
+/* RippleTimeline: theme tokens only. The widget is always left to right (it shows binary numbers). */
+.rt { display: grid; gap: 14px; direction: ltr; font-family: var(--font-mono); }
+.rt-grid {
+  display: grid; align-items: center; justify-items: center; gap: 6px 6px;
+  grid-template-columns: 3.2rem repeat(var(--cols), minmax(36px, 1fr));
+  min-width: calc(3.2rem + var(--cols) * 42px);
+}
+.rt-lab { justify-self: start; color: var(--muted); font-size: .85rem; }
+.rt-head { color: var(--muted); font-size: .72rem; white-space: nowrap; }
+.rt-cell {
+  display: grid; place-items: center; width: 100%; max-width: 54px; height: 34px; border-radius: 9px; font-weight: 700; font-size: 1.1rem;
+  border: 1px solid var(--border); background: var(--surface); animation: rt-pop .3s ease-out;
+}
+.rt-cell.one { color: var(--one); border-color: var(--one); box-shadow: 0 0 10px var(--one-glow); }
+.rt-cell.zero { color: var(--text); border-color: var(--zero); }
+.rt-cell.pending { color: var(--muted); border-style: dashed; border-color: var(--zero); background: transparent; animation: none; }
+@keyframes rt-pop { 0% { transform: scale(.82); } 60% { transform: scale(1.08); } 100% { transform: none; } }
+
+.rt-fa {
+  display: grid; place-items: center; width: 100%; max-width: 62px; padding: 5px 2px; border-radius: 10px; line-height: 1.15;
+  border: 2px solid var(--zero); color: var(--muted); background: var(--surface);
+  transition: border-color .2s, color .2s, box-shadow .2s;
+}
+.rt-fa small { font-size: .68rem; }
+.rt-fa.active { border-color: var(--amber); color: var(--amber); box-shadow: 0 0 14px var(--amber-glow); animation: rt-pulse .9s ease-in-out infinite; }
+.rt-fa.done { border-color: var(--one); color: var(--one); }
+@keyframes rt-pulse { 50% { box-shadow: 0 0 4px var(--amber-glow); } }
+.rt-arrow { color: var(--amber); font-size: .9rem; opacity: .8; }
+
+.rt-v { display: flex; align-items: center; gap: 10px; margin: 0; justify-content: center; }
+.rt-lab-inline { color: var(--muted); font-size: .85rem; }
+.rt-v .rt-cell { width: 44px; }
+
+.rt-axis { display: grid; gap: 4px; }
+.rt-tracks { position: relative; display: grid; gap: 4px; }
+.rt-row { display: grid; grid-template-columns: 3.2rem 1fr; align-items: center; gap: 6px; }
+.rt-name { color: var(--muted); font-size: .8rem; }
+.rt-track { position: relative; display: block; height: 20px; border-radius: 6px; background: color-mix(in srgb, var(--surface) 60%, transparent); border: 1px solid var(--border); }
+.rt-bar {
+  position: absolute; top: -1px; bottom: -1px; border-radius: 6px; overflow: hidden; border: 1px solid var(--zero);
+  background: color-mix(in srgb, var(--zero) 25%, transparent); min-width: 2px;
+}
+.rt-bar.v, .rt-bar.xor { border-color: var(--g2); }
+.rt-bar.active { border-color: var(--amber); }
+.rt-bar.done { border-color: var(--one); }
+.rt-fill { position: absolute; inset: 0 auto 0 0; background: var(--amber); opacity: .55; }
+.rt-bar.done .rt-fill { background: var(--one); opacity: .5; }
+.rt-end { position: relative; display: block; text-align: end; padding-inline: 4px; font-size: .7rem; line-height: 18px; color: var(--text); white-space: nowrap; }
+/* the cursor line spans all tracks, offset by the name column */
+.rt-cursor-wrap { position: absolute; inset: 0 0 0 calc(3.2rem + 6px); pointer-events: none; }
+.rt-cursor { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--amber); box-shadow: 0 0 8px var(--amber-glow); border-radius: 2px; }
+
+.rt-slider { width: 100%; accent-color: var(--amber); height: 28px; cursor: grab; margin: 0; }
+.rt-slider:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; border-radius: 6px; }
+
+.rt-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.rt-foot .btn { margin: 0; }
+.rt-time { color: var(--amber); font-weight: 700; direction: ltr; }
+.rt-state { color: var(--muted); font-family: var(--font-ui); font-size: .95rem; direction: rtl; }
+.rt-state.ok { color: var(--one); font-weight: 600; }
+.rt-result { margin: 0; font-family: var(--font-ui); direction: rtl; }
+.rt-result bdi { color: var(--text); font-weight: 700; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rt-cell, .rt-fa.active { animation: none; }
+  .rt-fa { transition: none; }
+}
