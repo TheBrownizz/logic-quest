@@ -17,8 +17,10 @@ export interface ProgressStore {
   /** The stored save if another writer (another tab) changed it since this store last read or wrote it; else `fallback`. */
   latest(fallback: SaveData): SaveData
   save(d: SaveData): void
-  exportJSON(): string
-  importJSON(s: string): { ok: true } | { ok: false; error: string }
+  /** The save as a downloadable JSON file (the caller passes its in-memory save). */
+  exportJSON(d: SaveData): string
+  /** Parses and validates an exported file. It does not write: the caller loads `data` into its save. */
+  importJSON(s: string): { ok: true; data: SaveData } | { ok: false; error: string }
 }
 
 export const SAVE_KEY = 'logic-quest-save'
@@ -39,9 +41,12 @@ const validCircuit = (v: unknown): v is Circuit =>
 const validChip = (v: unknown): v is Chip =>
   isObj(v) && typeof v.name === 'string' && isStrArr(v.inputs) && isStrArr(v.outputs) && validCircuit(v.circuit)
 
-function filterEntries<T>(o: Record<string, unknown>, ok: (v: unknown) => v is T): Record<string, T> {
-  return Object.fromEntries(Object.entries(o).filter(([, x]) => ok(x))) as Record<string, T>
+function filterEntries<T>(o: Record<string, unknown>, ok: (v: unknown, key: string) => v is T): Record<string, T> {
+  return Object.fromEntries(Object.entries(o).filter(([k, x]) => ok(x, k))) as Record<string, T>
 }
+
+/** A chip is stored under its own name; an entry under another key is dropped. */
+const validChipEntry = (v: unknown, key: string): v is Chip => validChip(v) && v.name === key
 
 /** Validates a parsed value as a version-1 save, filling missing fields with empty defaults. */
 function normalize(v: unknown): SaveData | null {
@@ -58,7 +63,7 @@ function normalize(v: unknown): SaveData | null {
   if (!isStrArr(knowledge) || !isStrArr(flagged)) return null
   const helped = isObj(v.helped) ? filterEntries(v.helped, (x): x is true => x === true) : {}
   if (!isObj(bestRun) || !Object.values(bestRun).every(n => typeof n === 'number')) return null
-  return { version: 1, rooms: rooms as SaveData['rooms'], chips: filterEntries(chips, validChip), drafts: filterEntries(drafts, validCircuit), knowledge, bestRun: bestRun as SaveData['bestRun'], flagged, helped }
+  return { version: 1, rooms: rooms as SaveData['rooms'], chips: filterEntries(chips, validChipEntry), drafts: filterEntries(drafts, validCircuit), knowledge, bestRun: bestRun as SaveData['bestRun'], flagged, helped }
 }
 
 export class LocalProgressStore implements ProgressStore {
@@ -113,17 +118,16 @@ export class LocalProgressStore implements ProgressStore {
     } catch { /* quota or blocked storage: ignore */ }
   }
 
-  exportJSON(): string {
-    return JSON.stringify(this.load(), null, 2)
+  exportJSON(d: SaveData): string {
+    return JSON.stringify(d, null, 2)
   }
 
-  importJSON(s: string): { ok: true } | { ok: false; error: string } {
+  importJSON(s: string): { ok: true; data: SaveData } | { ok: false; error: string } {
     let parsed: unknown
     try { parsed = JSON.parse(s) } catch { return { ok: false, error: 'invalid JSON' } }
     const d = normalize(parsed)
     if (!d) return { ok: false, error: 'invalid save data' }
-    this.save(d)
-    return { ok: true }
+    return { ok: true, data: d }
   }
 }
 

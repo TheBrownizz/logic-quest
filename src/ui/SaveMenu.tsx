@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { emptySave } from '../game/progress'
+import { emptySave, type SaveData } from '../game/progress'
 import { useSave, useSaveStore } from './save'
 
 export function SaveMenu({ onClose }: { onClose: () => void }) {
-  const [, update] = useSave()
-  const { store, reload } = useSaveStore()
+  const [save, update] = useSave()
+  const { store } = useSaveStore()
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  // An import reports success once the imported save is the one the app holds.
+  const [imported, setImported] = useState<SaveData | null>(null)
+  useEffect(() => {
+    if (imported && save === imported) { setMsg({ ok: true, text: 'השמירה נטענה בהצלחה' }); setImported(null) }
+  }, [save, imported])
   const file = useRef<HTMLInputElement>(null)
   const panel = useRef<HTMLDivElement>(null)
 
@@ -17,7 +22,7 @@ export function SaveMenu({ onClose }: { onClose: () => void }) {
   }, [onClose])
 
   const doExport = () => {
-    const blob = new Blob([store.exportJSON()], { type: 'application/json' })
+    const blob = new Blob([store.exportJSON(save)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -33,7 +38,7 @@ export function SaveMenu({ onClose }: { onClose: () => void }) {
     if (!f) return
     try {
       const r = store.importJSON(await f.text())
-      if (r.ok) { reload(); setMsg({ ok: true, text: 'השמירה נטענה בהצלחה' }) }
+      if (r.ok) { setMsg(null); setImported(r.data); update(() => r.data) }
       else setMsg({ ok: false, text: 'הקובץ לא תקין, לא בוצע שינוי' })
     } catch {
       setMsg({ ok: false, text: 'קריאת הקובץ נכשלה' })

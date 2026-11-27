@@ -37,14 +37,21 @@ describe('LocalProgressStore', () => {
   it('save throwing does not crash', () => {
     expect(() => new LocalProgressStore(fake({}, true)).save(emptySave())).not.toThrow()
   })
-  it('round trip export/import', () => {
-    const a = new LocalProgressStore(fake())
+  it('round trip export/import; export uses the given save, import does not write', () => {
+    const st = fake()
+    const a = new LocalProgressStore(st)
     const d = { ...emptySave(), rooms: { r1: { solved: true, optimal: false, noHints: true } }, bestRun: { s1: 900 } }
-    a.save(d)
-    const json = a.exportJSON()
-    const b = new LocalProgressStore(fake())
-    expect(b.importJSON(json)).toEqual({ ok: true })
-    expect(b.load()).toEqual(d)
+    const json = a.exportJSON(d) // nothing stored: the in-memory save is exported
+    expect(st.getItem('logic-quest-save')).toBeNull()
+    const b = new LocalProgressStore(st)
+    expect(b.importJSON(json)).toEqual({ ok: true, data: d })
+    expect(st.getItem('logic-quest-save')).toBeNull()
+  })
+  it('import drops chip entries stored under a key other than the chip name', () => {
+    const c = { nodes: [], wires: [] }
+    const chip = (name: string) => ({ name, inputs: ['a'], outputs: ['b'], circuit: c })
+    const r = new LocalProgressStore(fake()).importJSON(JSON.stringify({ version: 1, chips: { HA: chip('HA'), FA: chip('HA') } }))
+    expect(r.ok && Object.keys(r.data.chips)).toEqual(['HA'])
   })
   it('import garbage / bad version / bad shape fails', () => {
     const s = new LocalProgressStore(fake())
@@ -57,7 +64,7 @@ describe('LocalProgressStore', () => {
   })
   it('drops bad chips/drafts entries, keeps good ones', () => {
     const c = { nodes: [], wires: [] }
-    const chip = { name: 'n', inputs: ['a'], outputs: ['b'], circuit: c }
+    const chip = { name: 'good', inputs: ['a'], outputs: ['b'], circuit: c }
     const raw = JSON.stringify({ version: 1, drafts: { a: null, ok: c }, chips: { x: 5, good: chip } })
     const s = new LocalProgressStore(fake({ 'logic-quest-save': raw })).load()
     expect(s.drafts).toEqual({ ok: c })
@@ -80,9 +87,8 @@ describe('LocalProgressStore', () => {
   it('helped survives export/import', () => {
     const a = new LocalProgressStore(fake())
     a.save({ ...emptySave(), helped: { r1: true } })
-    const b = new LocalProgressStore(fake())
-    expect(b.importJSON(a.exportJSON())).toEqual({ ok: true })
-    expect(b.load().helped).toEqual({ r1: true })
+    const r = new LocalProgressStore(fake()).importJSON(a.exportJSON(a.load()))
+    expect(r.ok && r.data.helped).toEqual({ r1: true })
   })
 })
 
