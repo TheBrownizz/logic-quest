@@ -6,13 +6,13 @@ import { arrivalTimes, criticalPath, type Node } from '../../logic/circuit'
 import { useSave } from '../save'
 import { Stars } from '../Stars'
 import { CircuitEditor } from './CircuitEditor'
-import { Hints, useHelped, useSolve } from './roomParts'
+import { Hints, RestartButton, useHelped, useSolve } from './roomParts'
 import { autoLayout, findRoom, needsLayout } from './labLogic'
 import { referenceChips } from '../../content/chips'
 
 type DelayPz = Extract<LabPuzzle, { type: 'delay' }>
 
-export function DelayPuzzle({ room, puzzle }: { room: Room; puzzle: DelayPz }) {
+export function DelayPuzzle({ room, puzzle, onRestart }: { room: Room; puzzle: DelayPz; onRestart: () => void }) {
   const [save] = useSave()
   const solve = useSolve(room.id)
   // A delay room is a fixed diagram: it must render (and time) the same whether or not the player has built
@@ -85,6 +85,7 @@ export function DelayPuzzle({ room, puzzle }: { room: Room; puzzle: DelayPz }) {
           <span className="mono muted">ns</span>
         </span>
         <button type="submit" className="btn primary" disabled={!!done}>בדוק</button>
+        <RestartButton onRestart={onRestart} />
       </form>
       <div className="lab-panels">
         <div className="panel-col">

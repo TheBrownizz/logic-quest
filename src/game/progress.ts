@@ -9,7 +9,7 @@ export interface SaveData {
   knowledge: string[]
   bestRun: Record<string, number>
   flagged: string[]
-  /** Rooms where help (a hint, autofill, a retry after seeing the answer) was used since the last solve. */
+  /** Rooms where help (a hint, autofill, a retry after seeing the answer) was used since the player last started the room over. A solve keeps it. */
   helped: Record<string, true>
 }
 export interface ProgressStore {

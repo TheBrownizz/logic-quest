@@ -1,5 +1,5 @@
 import type { LabPuzzle, Room, Stage, World } from '../../content/types'
-import type { RoomResult } from '../../game/progress'
+import type { RoomResult, SaveData } from '../../game/progress'
 import { matches, type Bit, type TruthTable } from '../../logic/boolean'
 import {
   circuitTruthTable, evalGate, gateCount, simulate, usesOnly,
@@ -154,6 +154,19 @@ export function refersToChip(c: Circuit, name: string, chips: Chips, seen = new 
     if (inner && refersToChip(inner.circuit, name, chips, seen)) return true
   }
   return false
+}
+
+/**
+ * Starts a room over: drops its draft and its `helped` mark, so the no-hints star can be earned again.
+ * This is the only place `helped` is cleared (a solve keeps it).
+ */
+export function restartRoom(d: SaveData, roomId: string): SaveData {
+  if (!d.helped[roomId] && !d.drafts[roomId]) return d
+  const helped = { ...d.helped }
+  const drafts = { ...d.drafts }
+  delete helped[roomId]
+  delete drafts[roomId]
+  return { ...d, helped, drafts }
 }
 
 export function mergeResult(prev: RoomResult | undefined, cur: RoomResult): RoomResult {

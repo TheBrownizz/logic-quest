@@ -2,12 +2,12 @@ import { useState, type FormEvent } from 'react'
 import type { LabPuzzle, Room } from '../../content/types'
 import type { RoomResult } from '../../game/progress'
 import { Prose } from '../Prose'
-import { Hints, REVEAL_AFTER, SolvedVerdict, WRONG_TEXT, useHelped, useSolve } from './roomParts'
+import { Hints, REVEAL_AFTER, RestartButton, SolvedVerdict, WRONG_TEXT, useHelped, useSolve } from './roomParts'
 import { checkNumber } from './labLogic'
 
 type NumberPz = Extract<LabPuzzle, { type: 'number' }>
 
-export function NumberPuzzle({ room, puzzle }: { room: Room; puzzle: NumberPz }) {
+export function NumberPuzzle({ room, puzzle, onRestart }: { room: Room; puzzle: NumberPz; onRestart: () => void }) {
   const solve = useSolve(room.id)
   const [helped, markHelped] = useHelped(room.id)
   const [answer, setAnswer] = useState('')
@@ -40,6 +40,7 @@ export function NumberPuzzle({ room, puzzle }: { room: Room; puzzle: NumberPz })
             value={answer} disabled={!!done} placeholder="…"
             onChange={e => { setAnswer(e.target.value); setLastWrong(false) }} />
           <button type="submit" className="btn primary" disabled={!!done}>בדוק</button>
+          <RestartButton onRestart={onRestart} />
         </div>
       </form>
       <div className="lab-panels">

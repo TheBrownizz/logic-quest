@@ -9,7 +9,7 @@ import { mergeResult } from './labLogic'
 
 /**
  * Saves a solved result, keeping the best of each flag, and returns the merged result.
- * A solve also clears the room's `helped` mark, so a later replay without help can earn the no-hints star.
+ * The room's `helped` mark stays set: only starting the room over (restartRoom) clears it.
  */
 export function useSolve(roomId: string) {
   const [, update] = useSave()
@@ -17,20 +17,23 @@ export function useSolve(roomId: string) {
     let merged = cur
     update(d => {
       merged = mergeResult(d.rooms[roomId], cur)
-      const helped = { ...d.helped }
-      delete helped[roomId]
-      const next = { ...d, rooms: { ...d.rooms, [roomId]: merged }, helped }
+      const next = { ...d, rooms: { ...d.rooms, [roomId]: merged } }
       return extra ? extra(next) : next
     })
     return merged
   }
 }
 
-/** Whether help was used in this room since its last solve (persisted, so a reload can't hide it). */
+/** Whether help was used in this room since the player last started it over (persisted, so a reload can't hide it). */
 export function useHelped(roomId: string): [boolean, () => void] {
   const [save, update] = useSave()
   const mark = () => update(d => (d.helped[roomId] ? d : { ...d, helped: { ...d.helped, [roomId]: true } }))
   return [!!save.helped[roomId], mark]
+}
+
+/** "Start over": a room's local state is reset by its parent (remount); see restartRoom for the save. */
+export function RestartButton({ onRestart }: { onRestart: () => void }) {
+  return <button type="button" className="btn ghost" onClick={onRestart}>התחל מחדש</button>
 }
 
 export function Hints({ hints, shown, onReveal }: { hints: Hint[]; shown: number; onReveal: () => void }) {

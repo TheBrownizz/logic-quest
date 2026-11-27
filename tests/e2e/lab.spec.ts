@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { readSave } from './helpers'
 
 const pin = (page: Page, node: string, dir: 'in' | 'out', i = 0) => page.getByTestId(`pin-${node}-${dir}-${i}`)
 
@@ -7,9 +8,9 @@ async function wire(page: Page, from: string, to: string, toPin = 0) {
   await pin(page, to, 'in', toPin).click()
 }
 
-/** n1 = NAND(A,B); S = NAND(NAND(A,n1), NAND(B,n1)); C = NAND(n1,n1) */
-async function buildHalfAdder(page: Page) {
-  await page.getByRole('button', { name: 'נקה' }).click()
+/** n1 = NAND(A,B); S = NAND(NAND(A,n1), NAND(B,n1)); C = NAND(n1,n1). `restart` presses נקה first. */
+async function buildHalfAdder(page: Page, restart = true) {
+  if (restart) await page.getByRole('button', { name: 'נקה' }).click()
   for (let i = 0; i < 5; i++) await page.getByTestId('palette-NAND').click()
   await expect(page.locator('[data-testid^="node-g"]')).toHaveCount(5)
   await wire(page, 'A', 'g1', 0); await wire(page, 'B', 'g1', 1)
@@ -92,7 +93,7 @@ test('a hint still costs the star after a reload', async ({ page }) => {
   await expect(page.getByTestId('hint')).toHaveCount(1)
   await page.reload()
   await expect(page.getByTestId('hint')).toHaveCount(0)
-  await buildHalfAdder(page)
+  await buildHalfAdder(page, false)
   await page.getByRole('button', { name: 'בדוק' }).click()
   await expect(page.getByText('נכון!')).toBeVisible()
   await expect(page.getByTestId('result-stars')).toHaveAttribute('aria-label', '2 מתוך 3 כוכבים')
@@ -100,7 +101,45 @@ test('a hint still costs the star after a reload', async ({ page }) => {
   await page.reload()
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('logic-quest-save')!))
   expect(saved.rooms['sw-3-r1']).toEqual({ solved: true, optimal: true, noHints: false })
-  expect(saved.helped['sw-3-r1']).toBeUndefined()
+  expect(saved.helped['sw-3-r1']).toBe(true)
+})
+
+const stars = (page: Page) => page.getByTestId('result-stars')
+const TWO = '2 מתוך 3 כוכבים'
+const THREE = '3 מתוך 3 כוכבים'
+
+test('I1: hint, check, check again stays at two stars', async ({ page }) => {
+  await page.goto('/#/room/sw-3-r1')
+  await page.getByRole('button', { name: /רמז/ }).click()
+  await buildHalfAdder(page, false)
+  await page.getByRole('button', { name: 'בדוק' }).click()
+  await expect(stars(page)).toHaveAttribute('aria-label', TWO)
+  await page.getByRole('button', { name: 'בדוק' }).click()
+  await expect(stars(page)).toHaveAttribute('aria-label', TWO)
+  expect((await readSave(page)).rooms['sw-3-r1']).toEqual({ solved: true, optimal: true, noHints: false })
+})
+
+test('I1: autofill, check, reload, check stays at two stars', async ({ page }) => {
+  await page.goto('/?autofill=1#/room/sw-3-r1')
+  await expect(page.locator('[data-testid="wire"]')).toHaveCount(12)
+  await page.getByRole('button', { name: 'בדוק' }).click()
+  await expect(stars(page)).toHaveAttribute('aria-label', TWO)
+  await page.goto('/#/room/sw-3-r1')
+  await page.reload()
+  await expect(page.locator('[data-testid="wire"]')).toHaveCount(12)
+  await page.getByRole('button', { name: 'בדוק' }).click()
+  await expect(stars(page)).toHaveAttribute('aria-label', TWO)
+  expect((await readSave(page)).rooms['sw-3-r1'].noHints).toBe(false)
+})
+
+test('I1: נקה starts the circuit room over, and a clean rebuild earns the third star', async ({ page }) => {
+  await page.goto('/?autofill=1#/room/sw-3-r1')
+  await page.getByRole('button', { name: 'בדוק' }).click()
+  await expect(stars(page)).toHaveAttribute('aria-label', TWO)
+  await buildHalfAdder(page) // starts with נקה
+  expect((await readSave(page)).helped['sw-3-r1']).toBeUndefined()
+  await page.getByRole('button', { name: 'בדוק' }).click()
+  await expect(stars(page)).toHaveAttribute('aria-label', THREE)
 })
 
 test('a correct solve is saved even if the player leaves during the check sweep', async ({ page }) => {

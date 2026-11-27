@@ -17,7 +17,7 @@ import { NumberPuzzle } from './NumberPuzzle'
 import { Hints, useHelped, useSolve } from './roomParts'
 import {
   alignTable, autoLayout, checkCircuit, errorText, findRoom, hasQueryFlag, initialCircuit,
-  needsLayout, refersToChip, usableDraft, type CheckResult, type CircuitPuzzle,
+  needsLayout, refersToChip, restartRoom, usableDraft, type CheckResult, type CircuitPuzzle,
   visibleRows,
 } from './labLogic'
 import './lab.css'
@@ -25,18 +25,26 @@ import './lab.css'
 export function LabRoom({ roomId }: { roomId: string }) {
   const found = findRoom(roomId)
   if (!found) return <NotFound />
-  const { world, stage, room } = found
+  return <RoomView {...found} />
+}
+
+function RoomView({ world, stage, room }: NonNullable<ReturnType<typeof findRoom>>) {
+  const [, update] = useSave()
+  // Starting over remounts the puzzle with fresh local state; autofill only applies to the first mount.
+  const [attempt, setAttempt] = useState(0)
+  const restart = () => { update(d => restartRoom(d, room.id)); setAttempt(a => a + 1) }
+  const key = `${room.id}#${attempt}`
   const pz = room.puzzle
   return (
     <section className="lab">
       <a className="back" href={hrefs.stage(world.id, stage.id)}>→ {stage.title}</a>
       <h1 className="title">{room.title}</h1>
       <Prose as="p" className="intro" text={room.intro} />
-      {pz.type === 'circuit' ? <CircuitRoom key={room.id} room={room} puzzle={pz} />
-        : pz.type === 'delay' ? <DelayPuzzle key={room.id} room={room} puzzle={pz} />
-          : pz.type === 'kmap' ? <KMapPuzzle key={room.id} room={room} puzzle={pz} />
-            : pz.type === 'number' ? <NumberPuzzle key={room.id} room={room} puzzle={pz} />
-              : <CodePuzzle key={room.id} room={room} puzzle={pz} />}
+      {pz.type === 'circuit' ? <CircuitRoom key={key} room={room} puzzle={pz} onRestart={restart} autofill={attempt === 0} />
+        : pz.type === 'delay' ? <DelayPuzzle key={key} room={room} puzzle={pz} onRestart={restart} />
+          : pz.type === 'kmap' ? <KMapPuzzle key={key} room={room} puzzle={pz} onRestart={restart} />
+            : pz.type === 'number' ? <NumberPuzzle key={key} room={room} puzzle={pz} onRestart={restart} />
+              : <CodePuzzle key={key} room={room} puzzle={pz} onRestart={restart} />}
     </section>
   )
 }
@@ -44,7 +52,7 @@ export function LabRoom({ roomId }: { roomId: string }) {
 /** `result` is the merged, saved result (stars); `attempt` is this attempt alone (checklist). */
 type Verdict = { res: CheckResult; table?: TruthTable; result?: RoomResult; attempt?: RoomResult; unlocked?: string }
 
-function CircuitRoom({ room, puzzle }: { room: Room; puzzle: CircuitPuzzle }) {
+function CircuitRoom({ room, puzzle, onRestart, autofill }: { room: Room; puzzle: CircuitPuzzle; onRestart: () => void; autofill: boolean }) {
   const [save, update] = useSave()
   const solve = useSolve(room.id)
   const chips = save.chips
@@ -81,7 +89,7 @@ function CircuitRoom({ room, puzzle }: { room: Room; puzzle: CircuitPuzzle }) {
 
   const autofilled = useRef(false)
   useEffect(() => {
-    if (autofilled.current || !hasQueryFlag(window.location.search, window.location.hash, 'autofill')) return
+    if (!autofill || autofilled.current || !hasQueryFlag(window.location.search, window.location.hash, 'autofill')) return
     autofilled.current = true
     markHelped()
     edit(autoLayout(puzzle.reference))
@@ -161,7 +169,7 @@ function CircuitRoom({ room, puzzle }: { room: Room; puzzle: CircuitPuzzle }) {
       />
       <div className="lab-actions">
         <button type="button" className="btn primary" onClick={check} disabled={sweep !== null}>בדוק</button>
-        <button type="button" className="btn ghost" onClick={() => edit(initialCircuit(spec))} disabled={sweep !== null}>נקה</button>
+        <button type="button" className="btn ghost" onClick={onRestart} disabled={sweep !== null} title="מתחיל את החדר מחדש">נקה</button>
         <span className={`live-status ${status ? 'muted' : 'ok'}`}>
           {sweep !== null ? 'בודק…' : status ? `חי · ${status}` : 'חי · המעגל שלם'}
         </span>

@@ -4,8 +4,9 @@ import type { LabPuzzle } from '../../src/content/types'
 import { stage3 } from '../../src/content/switching/stage3'
 import {
   alignTable, autoLayout, checkCircuit, findRoom, hasQueryFlag, initialCircuit, liveValues,
-  mergeResult, needsLayout, nextNodeId, refersToChip, usableDraft,
+  mergeResult, needsLayout, nextNodeId, refersToChip, restartRoom, usableDraft,
 } from '../../src/ui/lab/labLogic'
+import { emptySave } from '../../src/game/progress'
 import { parseHash } from '../../src/ui/router'
 import { checkCode, checkNumber, dragSelection } from '../../src/ui/lab/labLogic'
 import { groupToTerm } from '../../src/logic/kmap'
@@ -83,6 +84,18 @@ describe('lab logic', () => {
       .toEqual({ solved: true, optimal: true, noHints: true })
     expect(mergeResult(undefined, { solved: true, optimal: false, noHints: false }))
       .toEqual({ solved: true, optimal: false, noHints: false })
+  })
+
+  it('restartRoom clears only that room\'s helped mark and draft; a solve never does', () => {
+    const d = emptySave()
+    d.helped = { a: true, b: true }
+    d.drafts = { a: initialCircuit(ha.spec), b: initialCircuit(ha.spec) }
+    d.rooms = { a: { solved: true, optimal: true, noHints: false } }
+    const r = restartRoom(d, 'a')
+    expect(r.helped).toEqual({ b: true })
+    expect(Object.keys(r.drafts)).toEqual(['b'])
+    expect(r.rooms).toEqual(d.rooms)
+    expect(restartRoom(r, 'a')).toBe(r)
   })
 
   it('live values propagate through complete parts only', () => {

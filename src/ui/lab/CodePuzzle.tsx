@@ -1,13 +1,13 @@
 import { useState, type FormEvent } from 'react'
 import type { LabPuzzle, Room } from '../../content/types'
 import type { RoomResult } from '../../game/progress'
-import { Hints, REVEAL_AFTER, SolvedVerdict, WRONG_TEXT, useHelped, useSolve } from './roomParts'
+import { Hints, REVEAL_AFTER, RestartButton, SolvedVerdict, WRONG_TEXT, useHelped, useSolve } from './roomParts'
 import { checkCode } from './labLogic'
 import { ProseLines } from '../Prose'
 
 type CodePz = Extract<LabPuzzle, { type: 'code' }>
 
-export function CodePuzzle({ room, puzzle }: { room: Room; puzzle: CodePz }) {
+export function CodePuzzle({ room, puzzle, onRestart }: { room: Room; puzzle: CodePz; onRestart: () => void }) {
   const solve = useSolve(room.id)
   const [helped, markHelped] = useHelped(room.id)
   const [given, setGiven] = useState<string[]>(() => puzzle.inputs.map(() => ''))
@@ -50,7 +50,10 @@ export function CodePuzzle({ room, puzzle }: { room: Room; puzzle: CodePz }) {
             </div>
           )
         })}
-        <button type="submit" className="btn primary" disabled={!!done}>בדוק</button>
+        <div className="row">
+          <button type="submit" className="btn primary" disabled={!!done}>בדוק</button>
+          <RestartButton onRestart={onRestart} />
+        </div>
       </form>
       <div className="lab-panels">
         <div className="panel-col">

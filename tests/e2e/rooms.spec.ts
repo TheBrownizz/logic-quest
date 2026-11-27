@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { readSave } from './helpers'
 
 async function pickGroup(page: Page, cells: Array<[number, number]>) {
   const toggle = page.getByRole('button', { name: 'בחירת תאים' })
@@ -82,4 +83,42 @@ test('k-map: plain drag makes a rectangle; 2x2 across the left/right edge is acc
   await pickGroup(page, [[0, 1], [0, 2], [3, 3]])
   await expect(page.getByRole('alert')).toHaveText('קבוצה לא חוקית')
   await expect(page.getByTestId('kmap-group')).toHaveCount(1)
+})
+
+test('I1: k-map hint, non-minimal, then minimal stays at two stars; התחל מחדש clears it', async ({ page }) => {
+  await page.goto('/#/room/sw-4-r1')
+  await page.getByRole('button', { name: /רמז/ }).click()
+  await pickGroup(page, [[0, 0], [0, 3]])
+  await pickGroup(page, [[3, 0], [3, 3]])
+  await page.getByRole('button', { name: 'בדוק' }).click()
+  await expect(page.getByTestId('result-stars')).toHaveAttribute('aria-label', '1 מתוך 3 כוכבים')
+  await page.getByRole('button', { name: 'נקה' }).click()
+  await pickGroup(page, [[0, 0], [0, 3], [3, 0], [3, 3]])
+  await page.getByRole('button', { name: 'בדוק' }).click()
+  await expect(page.getByTestId('result-stars')).toHaveAttribute('aria-label', '2 מתוך 3 כוכבים')
+  expect((await readSave(page)).rooms['sw-4-r1']).toEqual({ solved: true, optimal: true, noHints: false })
+  // starting over from a clean state may earn the third star
+  await page.getByRole('button', { name: 'התחל מחדש' }).click()
+  await expect(page.getByTestId('hint')).toHaveCount(0)
+  await expect(page.getByTestId('kmap-group')).toHaveCount(0)
+  await pickGroup(page, [[0, 0], [0, 3], [3, 0], [3, 3]])
+  await page.getByRole('button', { name: 'בדוק' }).click()
+  await expect(page.getByTestId('result-stars')).toHaveAttribute('aria-label', '3 מתוך 3 כוכבים')
+})
+
+test('I1: number room hint, solve, התחל מחדש, solve again earns three stars', async ({ page }) => {
+  await page.goto('/#/room/sw-1-r1')
+  await page.getByRole('button', { name: /רמז/ }).click()
+  await page.getByTestId('number-input').fill('10110101')
+  await page.getByRole('button', { name: 'בדוק' }).click()
+  await expect(page.getByTestId('result-stars')).toHaveAttribute('aria-label', '2 מתוך 3 כוכבים')
+  await page.reload()
+  await page.getByTestId('number-input').fill('10110101')
+  await page.getByRole('button', { name: 'בדוק' }).click()
+  await expect(page.getByTestId('result-stars')).toHaveAttribute('aria-label', '2 מתוך 3 כוכבים')
+  await page.getByRole('button', { name: 'התחל מחדש' }).click()
+  await expect(page.getByTestId('number-input')).toHaveValue('')
+  await page.getByTestId('number-input').fill('10110101')
+  await page.getByRole('button', { name: 'בדוק' }).click()
+  await expect(page.getByTestId('result-stars')).toHaveAttribute('aria-label', '3 מתוך 3 כוכבים')
 })

@@ -5,7 +5,7 @@ import { stars } from '../../game/rules'
 import { checkCover, groupToTerm, kmapLayout, type Group } from '../../logic/kmap'
 import { formatSOP } from '../../logic/qm'
 import { Stars } from '../Stars'
-import { Hints, useHelped, useSolve } from './roomParts'
+import { Hints, RestartButton, useHelped, useSolve } from './roomParts'
 import { dragSelection } from './labLogic'
 
 type KMapPz = Extract<LabPuzzle, { type: 'kmap' }>
@@ -37,7 +37,7 @@ const bits = (v: number, w: number) => v.toString(2).padStart(w, '0')
 
 type Verdict = { kind: 'bad'; text: string } | { kind: 'ok'; minimal: boolean; result: RoomResult }
 
-export function KMapPuzzle({ room, puzzle }: { room: Room; puzzle: KMapPz }) {
+export function KMapPuzzle({ room, puzzle, onRestart }: { room: Room; puzzle: KMapPz; onRestart: () => void }) {
   const { nVars, minterms, dontCares } = puzzle
   const L = useMemo(() => kmapLayout(nVars), [nVars])
   const rb = Math.floor(nVars / 2)
@@ -217,6 +217,7 @@ export function KMapPuzzle({ room, puzzle }: { room: Room; puzzle: KMapPz }) {
           <button type="button" className="btn ghost" onClick={() => setPicked([])} disabled={picked.length === 0}>בטל</button>
         </>}
         <button type="button" className="btn ghost" onClick={() => { setGroups([]); setVerdict(null) }} disabled={locked || groups.length === 0}>נקה</button>
+        <RestartButton onRestart={onRestart} />
       </div>
 
       <div className="lab-panels">
