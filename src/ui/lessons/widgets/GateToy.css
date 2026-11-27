@@ -1,0 +1,53 @@
+/* GateToy and IdentityBench (shared classes). Theme tokens only; reduced motion shows the final state. */
+.gt { display: grid; gap: 16px; justify-items: center; }
+.gt-svg { width: 100%; max-width: 440px; height: auto; direction: ltr; overflow: visible; }
+.gt-var { fill: var(--amber); font: 700 16px var(--font-mono); }
+.gt-expr { fill: var(--text); font: 600 14px var(--font-mono); }
+
+.gt-wire { stroke: var(--zero); stroke-width: 3; fill: none; stroke-linecap: round; }
+.gt-wire.live { stroke: var(--one); stroke-dasharray: 1; stroke-dashoffset: 0; filter: drop-shadow(0 0 3px var(--one-glow)); animation: gt-draw .32s ease-out backwards; animation-delay: var(--d, 0s); }
+@keyframes gt-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+
+.gt-body { fill: var(--surface-hi); stroke: var(--zero); stroke-width: 2.5; stroke-linejoin: round; }
+.gt-body-line { stroke: var(--zero); stroke-width: 2.5; stroke-linecap: round; }
+.gt-body.on, .gt-body-line.on { stroke: var(--one); animation: gt-body-on .3s ease-out .25s backwards; }
+@keyframes gt-body-on { from { stroke: var(--zero); } }
+
+.gt-bulb { fill: var(--bg); stroke: var(--zero); stroke-width: 3; }
+.gt-lamp-val { fill: var(--muted); font: 700 20px var(--font-mono); }
+.gt-lamp.on .gt-bulb { fill: var(--one); stroke: var(--one); filter: drop-shadow(0 0 10px var(--one-glow)); animation: gt-lamp .35s ease-out .7s backwards; }
+.gt-lamp.on .gt-lamp-val { fill: var(--on-one); }
+@keyframes gt-lamp { from { fill: var(--bg); stroke: var(--zero); filter: none; } }
+
+.gt-sw { cursor: pointer; outline: none; }
+.gt-sw-pill { fill: var(--bg); stroke: var(--zero); stroke-width: 2.5; transition: stroke .15s, fill .15s; }
+.gt-sw.on .gt-sw-pill { stroke: var(--one); fill: color-mix(in srgb, var(--one) 16%, var(--bg)); }
+.gt-sw-knob { fill: var(--zero); transition: cx .15s; }
+.gt-sw.on .gt-sw-knob { fill: var(--one); filter: drop-shadow(0 0 4px var(--one-glow)); }
+.gt-sw-val { fill: var(--muted); font: 700 14px var(--font-mono); pointer-events: none; }
+.gt-sw:hover .gt-sw-pill { stroke: var(--amber); }
+.gt-sw:focus-visible .gt-sw-pill { stroke: var(--amber); stroke-width: 4; }
+
+.gt-table { border-collapse: collapse; font: 600 1rem var(--font-mono); text-align: center; min-width: 220px; }
+.gt-cap { caption-side: bottom; padding-top: 8px; font: .85rem var(--font-ui); color: var(--muted); direction: rtl; text-align: center; }
+.gt-table th, .gt-table td { padding: 5px 14px; border-bottom: 1px solid var(--border); }
+.gt-table thead th { color: var(--muted); font-size: .85rem; border-bottom: 2px solid var(--border); }
+.gt-table thead th.gt-th-out, .gt-table thead th.gt-th-pair { color: var(--amber); }
+.gt-table tbody tr.cur { background: color-mix(in srgb, var(--amber) 13%, transparent); }
+.gt-table td.gt-out, .gt-table th.gt-th-out { border-inline-start: 2px solid var(--border); }
+.gt-out.v1 { color: var(--one); }
+.gt-out.v0 { color: var(--muted); }
+.gt-out.unk { color: var(--zero); }
+.gt-rowbtn {
+  font: inherit; font-size: .85rem; color: var(--muted); background: none; border: 1px solid var(--border); border-radius: 8px;
+  min-width: 30px; min-height: 28px; cursor: pointer; transition: border-color .15s, color .15s;
+}
+.gt-rowbtn:hover, .gt-rowbtn:focus-visible { border-color: var(--amber); color: var(--amber); outline: none; }
+.gt-table tbody tr.fresh td.gt-out { animation: gt-fill .45s ease-out .6s backwards; }
+@keyframes gt-fill { from { opacity: 0; transform: scale(.4); } 60% { transform: scale(1.25); } }
+
+.gt.reduced *, .gt.reduced *::before { animation: none !important; transition: none !important; }
+@media (prefers-reduced-motion: reduce) { .gt *, .gt *::before { animation: none !important; transition: none !important; } }
+@media (max-width: 520px) {
+  .gt-table th, .gt-table td { padding: 4px 9px; }
+}
