@@ -2,6 +2,7 @@ import type { Stage } from '../types'
 import { complementR, decodeIEEE754, encodeIEEE754, fromBase, toBase } from '../../logic/numbers'
 import { evenParityBit, toGray } from '../../logic/codes'
 import { cards2 } from './stage2-cards'
+import { ltr } from './helpers'
 
 /**
  * The invented "MX" code, exactly as its definition reads: for b_n…b_0 (b_n = MSB),
@@ -59,9 +60,9 @@ export const stage2: Stage = {
     },
     {
       id: 'sw-2-r4', title: 'מילה מלאה ב-32 ביטים',
-      intro: 'עכשיו כל המילה: כתבו את −6.75 בפורמט IEEE-754 (32 ביט), כשמונה ספרות הקסדצימליות.',
+      intro: `עכשיו כל המילה: כתבו את ${ltr('−6.75')} בפורמט IEEE-754 (32 ביט), כשמונה ספרות הקסדצימליות.`,
       puzzle: {
-        type: 'number', prompt: 'כתבו את −6.75 ב-IEEE-754 בהקסדצימלי (8 ספרות)', answer: 'C0D80000', check: 'exact',
+        type: 'number', prompt: `כתבו את ${ltr('−6.75')} ב-IEEE-754 בהקסדצימלי (8 ספרות)`, answer: 'C0D80000', check: 'exact',
         compute: () => toBase(fromBase(encodeIEEE754(-6.75).bits, 2), 16).padStart(8, '0'),
       },
       hints: [

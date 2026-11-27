@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { complementR, digitsValue, encodeIEEE754, findBases, fromBase, isValidIn, toBase } from '../../src/logic/numbers'
+import { complementR, complementR1, digitsValue, encodeIEEE754, findBases, fromBase, isValidIn, toBase } from '../../src/logic/numbers'
 import { evenParityBit, toBCD, toGray } from '../../src/logic/codes'
 import { muxTree, romBits } from '../../src/logic/sizing'
 import { minimizeSOP, primeImplicants, formatSOP, literalCount } from '../../src/logic/qm'
@@ -28,6 +28,8 @@ describe('stage 1 answers', () => {
     expect(bases(r => digitsValue('13', r) + digitsValue('22', r), r => digitsValue('40', r), ['13', '22', '40'])).toEqual([5])
     expect(mcqAnswer('sw-1-c10')).toBe(String(fromBase('2F', 16)))
     expect(mcqAnswer('sw-1-c12')).toBe(String(bases(r => digitsValue('3', r) * digitsValue('4', r), r => digitsValue('20', r), ['3', '4', '20'])[0]))
+    expect(mcqAnswer('sw-1-c11')).toBe(`המשלים ל-8 שלו הוא (${complementR('0350', 8)})₈`)
+    expect(complementR1('0350', 8)).toBe('7427')
     expect(mcqAnswer('sw-1-c13')).toBe(complementR('01100100', 2))
     expect(mcqAnswer('sw-1-c14')).toBe(String(toBase(1000, 2).length))
     expect(mcqAnswer('sw-1-c15')).toBe('0.' + toBase(0.6875 * 16, 2).padStart(4, '0'))
@@ -88,7 +90,8 @@ describe('stage 5 answers', () => {
     expect(mcqAnswer('sw-5-c13')).toBe(String(muxTree(64, 4).total))
     expect(muxTree(8, 4)).toMatchObject({ total: 3, partial: 1 })
     expect(mcqAnswer('sw-5-c15')).toBe(`128×4 = ${romBits(7, 4)} ביטים`)
-    expect(romBits(6, 4)).toBe(256)
+    expect(romBits(5, 3)).toBe(96)
+    expect(claimTruth('sw-5-c9')).toBe(romBits(5, 3) === 15)
     const chips = referenceChips(switchingWorld)
     expect(arrivalTimes(adderSubtractor(4), chips).V).toBe(550)
     expect(mcqAnswer('sw-5-c16')).toBe(`${arrivalTimes(adderSubtractor(8), chips).V} ns`)

@@ -120,3 +120,18 @@ test('adder/subtractor delay room works before the player has built FA', async (
   await expect(page.getByText('נכון!')).toBeVisible()
   await expect(page.getByTestId('arrival-V')).toContainText('450')
 })
+
+test('ADD4 room: the 512-row truth table shows a window and a note', async ({ page }) => {
+  const { referenceChips } = await import('../../src/content/chips')
+  const { switchingWorld } = await import('../../src/content/switching/world')
+  const chips = referenceChips(switchingWorld)
+  const save = { version: 1, rooms: {}, chips: { HA: chips.HA, FA: chips.FA }, drafts: {}, knowledge: [], bestRun: {}, flagged: [] }
+  await page.addInitScript(s => {
+    if (!sessionStorage.getItem('seeded')) { localStorage.setItem('logic-quest-save', s); sessionStorage.setItem('seeded', '1') }
+  }, JSON.stringify(save))
+  await page.goto('/?autofill=1#/room/sw-5-r6')
+  await page.getByRole('button', { name: 'בדוק' }).click()
+  await expect(page.getByText('נכון!')).toBeVisible()
+  await expect(page.getByTestId('tt-note')).toHaveText('מוצגות 4 מתוך 512 שורות')
+  await expect(page.locator('[data-testid^="tt-row-"]')).toHaveCount(4)
+})

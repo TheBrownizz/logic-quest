@@ -17,6 +17,7 @@ import { Hints, useHelped, useSolve } from './roomParts'
 import {
   alignTable, autoLayout, checkCircuit, errorText, findRoom, hasQueryFlag, initialCircuit,
   needsLayout, refersToChip, usableDraft, type CheckResult, type CircuitPuzzle,
+  visibleRows,
 } from './labLogic'
 import './lab.css'
 
@@ -207,32 +208,39 @@ function VerdictView({ v, puzzle }: { v: Verdict; puzzle: CircuitPuzzle }) {
 }
 
 function TruthPanel({ spec, actual, row, revealed, mismatch }: { spec: TruthTable; actual?: TruthTable; row?: number; revealed: number; mismatch: boolean }) {
+  const shown = visibleRows(spec.rows.length, row)
   return (
-    <table className="tt mono" dir="ltr">
-      <thead>
-        <tr>
-          {spec.inputs.map(n => <th key={n}>{n}</th>)}
-          {spec.outputs.map(o => <th key={o} className="sep">{o}<small> רצוי</small></th>)}
-          {spec.outputs.map(o => <th key={`y${o}`} className="sep">{o}<small> שלך</small></th>)}
-        </tr>
-      </thead>
-      <tbody>
-        {spec.rows.map((r, i) => {
-          const bad = mismatch && row === i
-          const cur = !mismatch && row === i
-          return (
-            <tr key={i} data-testid={`tt-row-${i}`} data-mismatch={bad ? 'true' : undefined} className={bad ? 'bad' : cur ? 'cur' : ''}>
-              {spec.inputs.map((n, j) => <td key={n}>{(i >> (spec.inputs.length - 1 - j)) & 1}</td>)}
-              {r.map((v, j) => <td key={j} className="sep">{v}</td>)}
-              {spec.outputs.map((_, j) => {
-                const y = i < revealed ? actual?.rows[i]?.[j] : undefined
-                const ok = y === undefined || r[j] === 'x' || y === r[j]
-                return <td key={`y${j}`} className={`sep ${y === undefined ? 'muted' : ok ? 'ok' : 'err'}`}>{y ?? '·'}</td>
-              })}
-            </tr>
-          )
-        })}
-      </tbody>
-    </table>
+    <div className="tt-wrap">
+      <table className="tt mono" dir="ltr">
+        <thead>
+          <tr>
+            {spec.inputs.map(n => <th key={n}>{n}</th>)}
+            {spec.outputs.map(o => <th key={o} className="sep">{o}<small> רצוי</small></th>)}
+            {spec.outputs.map(o => <th key={`y${o}`} className="sep">{o}<small> שלך</small></th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {shown.map(i => {
+            const r = spec.rows[i]
+            const bad = mismatch && row === i
+            const cur = !mismatch && row === i
+            return (
+              <tr key={i} data-testid={`tt-row-${i}`} data-mismatch={bad ? 'true' : undefined} className={bad ? 'bad' : cur ? 'cur' : ''}>
+                {spec.inputs.map((n, j) => <td key={n}>{(i >> (spec.inputs.length - 1 - j)) & 1}</td>)}
+                {r.map((v, j) => <td key={j} className="sep">{v}</td>)}
+                {spec.outputs.map((_, j) => {
+                  const y = i < revealed ? actual?.rows[i]?.[j] : undefined
+                  const ok = y === undefined || r[j] === 'x' || y === r[j]
+                  return <td key={`y${j}`} className={`sep ${y === undefined ? 'muted' : ok ? 'ok' : 'err'}`}>{y ?? '·'}</td>
+                })}
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+      {shown.length < spec.rows.length && (
+        <p className="muted tt-note" data-testid="tt-note">מוצגות {shown.length} מתוך {spec.rows.length} שורות</p>
+      )}
+    </div>
   )
 }

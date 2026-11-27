@@ -12,6 +12,9 @@ export function cardsFor(stage: string) {
   }
 }
 
+/** Wraps s in Unicode LTR isolates so minus signs and formulas read correctly inside Hebrew text. */
+export const ltr = (s: string): string => `\u2066${s}\u2069`
+
 /** A circuit node; layout is computed by the editor when every node sits at (0,0). */
 export const node = (id: string, kind: Node['kind'], label?: string, delay?: number): Node =>
   delay === undefined ? { id, kind, label, x: 0, y: 0 } : { id, kind, label, x: 0, y: 0, delay }

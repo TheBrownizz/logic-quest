@@ -183,3 +183,14 @@ describe('k-map selection', () => {
     expect(groupToTerm(4, { cells: [[0, 0], [1, 0], [0, 3], [2, 3]] })).toBeNull()
   })
 })
+
+describe('truth panel window', () => {
+  it('shows every row up to 64, else the focus row ±3', async () => {
+    const { visibleRows } = await import('../../src/ui/lab/labLogic')
+    expect(visibleRows(16)).toHaveLength(16)
+    expect(visibleRows(64, 10)).toHaveLength(64)
+    expect(visibleRows(512, 100)).toEqual([97, 98, 99, 100, 101, 102, 103])
+    expect(visibleRows(512)).toEqual([0, 1, 2, 3])
+    expect(visibleRows(512, 511)).toEqual([508, 509, 510, 511])
+  })
+})

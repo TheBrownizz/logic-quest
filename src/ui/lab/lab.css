@@ -244,3 +244,4 @@ kbd { font-family: var(--font-mono); font-size: .85em; padding: 1px 7px; border:
 .kcell.picked { background: color-mix(in srgb, var(--amber) 28%, transparent); box-shadow: inset 0 0 0 2px var(--amber); }
 .kcells.pick .kcell { cursor: pointer; }
 .btn.on { border-color: var(--amber); color: var(--amber); box-shadow: 0 0 12px var(--amber-glow); }
+.tt-note { margin: 6px 0 0; font-size: .85rem; }

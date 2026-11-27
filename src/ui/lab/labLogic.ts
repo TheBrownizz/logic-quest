@@ -266,3 +266,15 @@ export function dragSelection(a: [number, number], b: [number, number]): { rows:
   }
   return { rows: axis(a[0], b[0]), cols: axis(a[1], b[1]) }
 }
+
+/** Truth tables longer than this show only a window of rows. */
+export const TT_MAX_ROWS = 64
+
+/** Row indices the truth panel shows: all of them for short tables, else `focus` (the mismatch or current row) ±3. */
+export function visibleRows(total: number, focus?: number): number[] {
+  if (total <= TT_MAX_ROWS) return Array.from({ length: total }, (_, i) => i)
+  const f = Math.min(Math.max(focus ?? 0, 0), total - 1)
+  const out: number[] = []
+  for (let i = Math.max(0, f - 3); i <= Math.min(total - 1, f + 3); i++) out.push(i)
+  return out
+}

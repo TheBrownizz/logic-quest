@@ -161,4 +161,43 @@ describe('switching content', () => {
     const gc = (name: string) => gateCount(chips[name].circuit, chips)
     expect([gc('HA'), gc('MUX2'), gc('FA'), gc('ADD4')]).toEqual([5, 4, 8, 32])
   })
+
+  // A reason must explain, never announce, the verdict: the player has already chosen נכונה / לא נכונה.
+  const VERDICT = /(^|[\s,.:;"'(\-])(לא\s+נכון|לא\s+נכונה|נכון|נכונה|נכונים|שגוי|שגויה|שגויים)(?=$|[\s,.:;"')!])/
+  const POLARITY_START = /^\s*(כן|לא|להפך|אכן|ממש\s+לא)\s*[,:.!]/
+  it('no claim reason states a verdict', () => {
+    expect(VERDICT.test('נכון, כי X')).toBe(true)
+    expect(VERDICT.test('הטענה לא נכונה')).toBe(true)
+    expect(VERDICT.test('כי X שגוי')).toBe(true)
+    expect(VERDICT.test('מתכונן ונכונות')).toBe(false)
+    expect(POLARITY_START.test('לא, כי X')).toBe(true)
+    for (const s of stages) for (const c of claims(s)) {
+      for (const r of c.reasons) {
+        expect(VERDICT.test(r), `${c.id}: "${r}"`).toBe(false)
+        expect(POLARITY_START.test(r), `${c.id}: "${r}"`).toBe(false)
+      }
+    }
+  })
+
+  /** Minus signs next to digits must sit inside LTR isolates (U+2066…U+2069), or RTL text flips them. */
+  const looseMinus = (text: string) => {
+    const t = text.replace(/⁦[^⁩]*⁩/g, '')
+    return /(^|[\s(])[-−]\d/.test(t) || /\d[-−](?=$|[\s,.;:)])/.test(t) || /[֐-׿-]−\d/.test(t)
+  }
+  it('negative numbers in Hebrew text are LTR-isolated', () => {
+    expect(looseMinus('מחוץ לטווח 8− עד 7')).toBe(true)
+    expect(looseMinus('-128 עד 127')).toBe(true)
+    expect(looseMinus('⁦−128⁩ עד 127')).toBe(false)
+    expect(looseMinus('המשלים ל-2')).toBe(false)
+    for (const s of stages) {
+      for (const c of s.cards) {
+        const texts = [c.text, c.knowledge, ...(c.kind === 'claim' ? [...c.reasons, c.examReason] : c.options)]
+        for (const t of texts) expect(looseMinus(t), `${c.id}: "${t}"`).toBe(false)
+      }
+      for (const r of s.rooms) {
+        const p = r.puzzle as { prompt?: string; definition?: string }
+        for (const t of [r.title, r.intro, ...r.hints.map(h => h.text), p.prompt ?? '', p.definition ?? '']) expect(looseMinus(t), `${r.id}: "${t}"`).toBe(false)
+      }
+    }
+  })
 })
