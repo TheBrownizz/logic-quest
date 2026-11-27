@@ -2,7 +2,9 @@ import { test, expect, type Page } from '@playwright/test'
 import { emptySave } from '../../src/game/progress'
 import { seed } from './helpers'
 
-const SHOTS = '/home/user/logic-quest/.superpowers/sdd/2026-11-27-lessons'
+declare const process: { env: Record<string, string | undefined> }
+/** Where review screenshots go (set LESSON_SHOTS_DIR to write them); without it only the 400px layout is checked. */
+const SHOTS = process.env.LESSON_SHOTS_DIR
 const at = (page: Page, lesson: string, step: string) =>
   seed(page, { ...emptySave(), lessons: { [lesson]: { stepId: step, done: false } } })
 const noHorizontalScroll = async (page: Page) =>
@@ -70,7 +72,7 @@ const shots: { name: string; lesson: string; step: string; act?: (p: Page) => Pr
   { name: 'complement-result', lesson: 'sw-1-l3', step: 'sub-neg', act: async p => { for (let i = 0; i < 4; i++) await p.getByTestId('cl-next').click() } },
 ]
 for (const s of shots) for (const width of [1280, 400]) {
-  test(`screenshot ${s.name} at ${width}px`, async ({ page }) => {
+  test(`layout (and screenshot) ${s.name} at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
     await page.emulateMedia({ colorScheme: 'dark' })
     await at(page, s.lesson, s.step)
@@ -79,6 +81,6 @@ for (const s of shots) for (const width of [1280, 400]) {
     await s.act?.(page)
     await page.waitForTimeout(2200)
     await noHorizontalScroll(page)
-    await page.getByTestId('lesson-step').screenshot({ path: `${SHOTS}/task-2-${s.name}-${width}.png` })
+    if (SHOTS) await page.getByTestId('lesson-step').screenshot({ path: `${SHOTS}/task-2-${s.name}-${width}.png` })
   })
 }

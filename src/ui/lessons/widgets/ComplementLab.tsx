@@ -25,6 +25,8 @@ interface Row {
   reveal?: 'ltr' | 'rtl'
   /** carries[i]: position i produced a carry (shown over position i−1, or in the gutter for i = 0). */
   carries?: boolean[]
+  /** Carry row: also show a carry in the gutter (B = 0: its r complement r^w brings the end carry). */
+  extraEnd?: boolean
   /** The carry out of the top position, drawn in the gutter. */
   endCarry?: { value: 0 | 1; struck?: boolean }
   /** r1 rows: the arithmetic under each digit (e.g. "9−4"). */
@@ -66,7 +68,7 @@ function rowsFor(c: ComplementLabConfig, m: ComplementModel, phase: ComplementPh
     case 'sum': {
       const sum = m.sum!
       return [
-        { id: 'c', kind: 'carry', carries: sum.carries, reveal: 'rtl' },
+        { id: 'c', kind: 'carry', carries: sum.carries, reveal: 'rtl', extraEnd: m.r.endCarry },
         { id: 'a', kind: 'digits', digits: m.value, tone: 'a', caption: 'A (המחוסר)' },
         { id: 'rb', kind: 'digits', digits: m.r.digits, tone: 'b', sign: '+', caption: `B במשלים ל-${rText}` },
         rule,
@@ -97,7 +99,9 @@ const NOTE: Record<ComplementPhase, (m: ComplementModel, c: ComplementLabConfig)
   r: m => m.r.endCarry
     ? <>מוסיפים 1 לספרה הימנית. כל הספרות היו <L>{digitChar(m.base - 1)}</L>, לכן הנשא רץ עד הסוף ויוצא החוצה (המספר היה 0).</>
     : <>מוסיפים 1 לספרה הימנית. ספרה שמגיעה ל-<L>{m.base}</L> הופכת ל-0 ומעבירה נשא שמאלה; כשאין נשא, שאר הספרות נשארות.</>,
-  sum: () => <>מחברים ספרה אחר ספרה, מימין לשמאל, עם נשאים. ליד הספרה העליונה נבדק אם יצא נשא סופי.</>,
+  sum: m => m.r.endCarry
+    ? <>B הוא 0, והמשלים ל-<L>{m.base}</L> שלו הוא 1 ואחריו אפסים. ה-1 הזה הוא הנשא הסופי, ולכן התוצאה היא A עצמו.</>
+    : <>מחברים ספרה אחר ספרה, מימין לשמאל, עם נשאים. ליד הספרה העליונה נבדק אם יצא נשא סופי.</>,
   result: m => {
     const r = m.result!
     const a = valueOfDigits(m.value, m.base)
@@ -196,7 +200,7 @@ function RowView({ row, width, reveal }: { row: Row; width: number; reveal: numb
     const cs = row.carries ?? []
     return (
       <div className="cl-row carry" style={cols} aria-label="נשאים" data-testid="cl-carries">
-        <span className="cl-gut">{cs[0] && vis(0) ? <span className="cl-chip" key="e">1</span> : null}</span>
+        <span className="cl-gut">{(cs[0] || row.extraEnd) && vis(0) ? <span className="cl-chip" key="e">1</span> : null}</span>
         {Array.from({ length: width }, (_, i) => (
           <span key={i} className="cl-cell">{i + 1 < width && cs[i + 1] && vis(i + 1) ? <span className="cl-chip" key="c">1</span> : null}</span>
         ))}

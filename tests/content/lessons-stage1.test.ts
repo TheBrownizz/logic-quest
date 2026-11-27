@@ -105,6 +105,16 @@ describe('stage 1 answers, re-derived', () => {
     expect(num('sw-1-l3', 'six-bit')).toBe(write(val('110010', 2) - val('011101', 2), 2, 6))
     expect(check('sw-1-l3', 'carry-meaning')).toContain('זורקים')
     expect(check('sw-1-l3', 'end-around')).toContain('הימנית')
+    // r1-sub's worked example: 73 − 29 with the 9's complement and the end-around carry
+    expect(r1('29', 10)).toBe('70')
+    expect(73 + 70).toBe(143)
+    expect((143 % 100) + 1).toBe(73 - 29)
+    // the end-around rule itself, every 2-digit pair: carry → add it back; no carry → −(9's complement of the sum)
+    for (let a = 0; a < 100; a++) for (let b = 0; b < 100; b++) {
+      const s = a + val(r1(write(b, 10, 2), 10), 10)
+      const got = s >= 100 ? (s % 100) + 1 : -val(r1(write(s, 10, 2), 10), 10)
+      expect(got + 0, `${a}-${b}`).toBe(a - b) // a = b gives −0 (the 9's complement's second zero)
+    }
     // the subtraction widgets give the true difference
     for (const [id, diff] of [['sub-pos', 73 - 29], ['sub-neg', 13 - 18]] as const) {
       const s = step('sw-1-l3', id); if (s.kind !== 'widget') throw new Error()

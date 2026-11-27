@@ -82,11 +82,9 @@ export function BaseDial({ config, goal, onState, completed, reducedMotion }: Wi
           <span key={t.i} className="bd-term">{k > 0 && t.p > 0 ? ' + ' : k > 0 ? ' − ' : t.p < 0 ? '−' : ''}{Math.abs(t.p)}</span>
         ))}
         <span className="bd-eq"> = </span>
+        {signed && !topNegative && neg && <span className="bd-eq" data-testid="dial-unsigned">{unsigned} − {base ** width} = </span>}
         <b className={`bd-value${hit ? ' hit' : ''}`} data-testid="dial-value">{value}</b>
       </div>
-      {signed && !topNegative && neg && (
-        <div className="bd-note mono muted" data-testid="dial-note">{unsigned} − {base ** width} = {value}</div>
-      )}
       {signed && topNegative && (
         <div className="bd-note muted" dir="rtl">בייצוג מסומן הספרה השמאלית נחשבת במינוס: משקלה <span dir="ltr" className="mono">−{weights[0]}</span>.</div>
       )}

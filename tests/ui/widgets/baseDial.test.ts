@@ -10,6 +10,11 @@ describe('BaseDial logic', () => {
     expect(initial({ base: 16, width: 3, digits: '1AF' }).digits).toEqual([1, 10, 15])
   })
   it('rejects a bad config (so a typo in a lesson is caught by the validator)', () => {
+    expect(() => initial({ base: 1, width: 3 })).toThrow()
+    expect(() => initial({ base: 17, width: 3 })).toThrow()
+    expect(() => initial({ base: 2, width: 13 })).toThrow()
+    expect(() => initial({ base: 2 } as BaseDialConfig)).toThrow()
+    expect(initial({} as BaseDialConfig).digits).toEqual([0, 0, 0, 0]) // a missing config falls back to the default dial
     expect(() => checkConfig({ base: 1, width: 3 })).toThrow()
     expect(() => checkConfig({ base: 17, width: 3 })).toThrow()
     expect(() => checkConfig({ base: 2, width: 0 })).toThrow()
