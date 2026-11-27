@@ -1,0 +1,45 @@
+/* BaseDial — theme tokens only. The widget is LTR: digits run left to right, most significant first. */
+.bdial { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.bd-head { display: flex; gap: 14px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.bd-num { font-size: 1.15rem; color: var(--muted); }
+.bd-goal {
+  display: inline-flex; gap: 6px; align-items: center; padding: 2px 12px; border-radius: 999px;
+  border: 1px solid var(--amber); color: var(--amber); font-weight: 700; transition: background .2s, color .2s, box-shadow .2s;
+}
+.bd-goal.hit { background: var(--one); border-color: var(--one); color: var(--on-one); box-shadow: 0 0 14px var(--one-glow); }
+
+.bd-cols { display: flex; gap: clamp(4px, 1.4vw, 10px); justify-content: center; width: 100%; }
+.bd-col {
+  flex: 1 1 0; min-width: 38px; max-width: 76px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  animation: bd-drop .5s cubic-bezier(.2, .8, .3, 1) both; animation-delay: calc(var(--i) * 90ms);
+}
+@keyframes bd-drop { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
+.bd-exp { font-size: .8rem; color: var(--muted); }
+.bd-weight { font-size: 1.05rem; color: var(--amber); font-weight: 700; padding-bottom: 2px; border-bottom: 2px solid var(--amber); width: 100%; text-align: center; }
+.bd-weight.neg { color: var(--danger); border-bottom-color: var(--danger); }
+.bd-step {
+  font: inherit; font-size: .8rem; line-height: 1; width: 100%; padding: 6px 0; cursor: pointer; color: var(--muted);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px; transition: color .15s, border-color .15s, transform .1s;
+}
+.bd-step:hover { color: var(--amber); border-color: var(--amber); }
+.bd-step:active { transform: scale(.94); }
+.bd-digit {
+  width: 100%; text-align: center; font-size: clamp(1.5rem, 6vw, 2.1rem); font-weight: 700; line-height: 1.5; border-radius: 10px;
+  color: var(--zero); background: var(--bg); border: 2px solid var(--border); transition: color .15s, border-color .15s, box-shadow .15s;
+  cursor: ns-resize; user-select: none;
+}
+.bd-digit.on { color: var(--one); border-color: color-mix(in srgb, var(--one) 60%, var(--border)); box-shadow: 0 0 12px var(--one-glow); }
+.bd-digit:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.bd-prod { font-size: .95rem; color: var(--text); animation: bd-pop .3s ease-out; }
+.bd-prod.zero { color: var(--zero); }
+@keyframes bd-pop { from { transform: scale(1.35); color: var(--amber); } to { transform: none; } }
+
+.bd-sum { font-size: 1.05rem; text-align: center; display: flex; flex-wrap: wrap; justify-content: center; gap: 0 2px; align-items: baseline; animation: bd-sum-in .5s ease-out .9s both; }
+@keyframes bd-sum-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+.bd-term, .bd-eq { white-space: pre; }
+.bd-value { font-size: 1.7rem; color: var(--amber); text-shadow: 0 0 12px var(--amber-glow); transition: color .2s; }
+.bd-value.hit { color: var(--one); text-shadow: 0 0 14px var(--one-glow); }
+.bd-note { font-size: .9rem; text-align: center; }
+
+.bdial.rm .bd-col, .bdial.rm .bd-sum, .bdial.rm .bd-prod { animation: none; }
+@media (prefers-reduced-motion: reduce) { .bd-col, .bd-sum, .bd-prod { animation: none; } }
