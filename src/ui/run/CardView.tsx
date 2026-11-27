@@ -69,7 +69,7 @@ export function CardView({ card, order, onReveal, onNext }: {
         <>
           <div className="verdicts">
             {([true, false] as const).map(v => (
-              <button key={String(v)} type="button" data-testid={`verdict-${v}`} disabled={verdict !== null}
+              <button key={String(v)} type="button" data-testid={`verdict-${v}`} disabled={revealed}
                 className={`run-big ${v ? 'yes' : 'no'}${verdict === v ? ' chosen' : ''}`} onClick={() => setVerdict(v)}>
                 {v ? 'נכונה' : 'לא נכונה'}
               </button>

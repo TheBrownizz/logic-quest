@@ -62,6 +62,8 @@ function Run({ stageId, worldId, deckCards, seed, onAgain }: {
   const [revealed, setRevealed] = useState(false)
   const answered = useRef(-1)
   const prevBest = useRef(save.bestRun[stageId] ?? 0)
+  // knowledge held before this run, so the end screen lists only cards this run added
+  const knownBefore = useRef(new Set(save.knowledge))
   const recorded = useRef(false)
   // display order of each card's reasons, shuffled per card so the right one is not always first
   const orders = useMemo(() => run.deck.map((c, i) => {
@@ -93,6 +95,7 @@ function Run({ stageId, worldId, deckCards, seed, onAgain }: {
   if (run.done && !revealed) {
     const isNew = run.score > prevBest.current
     const cardById = new Map(deckCards.map(c => [c.id, c]))
+    const fresh = run.mistakes.filter(id => !knownBefore.current.has(id))
     return (
       <section className="run end" data-testid="end">
         <h1 className="title">סוף ריצה</h1>
@@ -102,8 +105,9 @@ function Run({ stageId, worldId, deckCards, seed, onAgain }: {
         {run.mistakes.length > 0 ? (
           <>
             <h2 className="sub">קלפי ידע חדשים</h2>
+            {fresh.length === 0 && <p className="muted">כל הקלפים שטעית בהם כבר באוסף.</p>}
             <ul className="mistakes">
-              {run.mistakes.map(id => <li key={id}><Prose as="a" href={hrefs.collection} text={cardById.get(id)?.text ?? id} /></li>)}
+              {fresh.map(id => <li key={id}><Prose as="a" href={hrefs.collection} text={cardById.get(id)?.text ?? id} /></li>)}
             </ul>
           </>
         ) : <p className="ok">ריצה נקייה, בלי טעויות.</p>}

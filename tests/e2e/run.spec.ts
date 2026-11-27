@@ -64,3 +64,33 @@ test('run: locked stage shows a lock message', async ({ page }) => {
   await page.goto('/#/run/sw-5-blocks')
   await expect(page.getByText('השלב נעול')).toBeVisible()
 })
+
+test('M6: the claim verdict can change until a reason is picked', async ({ page }) => {
+  await page.goto('/?seed=1#/run/sw-4-minimize')
+  const i = deck.findIndex(c => c.kind === 'claim')
+  for (const c of deck.slice(0, i)) await play(page, c, true)
+  const c = deck[i]
+  if (c.kind !== 'claim') throw new Error('no claim')
+  await page.getByTestId(`verdict-${!c.isTrue}`).click()
+  await page.getByTestId(`verdict-${c.isTrue}`).click()
+  await expect(page.getByTestId(`verdict-${c.isTrue}`)).toHaveClass(/chosen/)
+  await expect(page.getByTestId(`verdict-${!c.isTrue}`)).not.toHaveClass(/chosen/)
+  await page.getByTestId(`opt-${c.correctReason}`).click()
+  await expect(page.getByTestId('reveal')).toContainText('נכון!')
+  await expect(page.getByTestId(`verdict-${!c.isTrue}`)).toBeDisabled()
+})
+
+test('M7: the end screen lists only knowledge cards new in this run', async ({ page }) => {
+  await page.goto('/#/collection')
+  await page.evaluate(id => {
+    const d = JSON.parse(localStorage.getItem('logic-quest-save')!)
+    localStorage.setItem('logic-quest-save', JSON.stringify({ ...d, knowledge: [id] }))
+  }, deck[1].id)
+  await page.goto('/?seed=1#/run/sw-4-minimize')
+  await play(page, deck[0], false)
+  await play(page, deck[1], false)
+  for (const c of deck.slice(2)) await play(page, c, true)
+  await expect(page.getByTestId('end')).toBeVisible()
+  await expect(page.locator('.mistakes li')).toHaveCount(1)
+  await expect(page.locator('.mistakes li')).toHaveText(deck[0].text)
+})
