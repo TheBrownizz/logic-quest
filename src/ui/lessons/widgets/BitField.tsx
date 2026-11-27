@@ -62,6 +62,8 @@ export function BitField({ config, goal, onState, completed, reducedMotion }: Wi
   const reset = () => { setBits(start); setMoved(false) }
   const value = formatNumber(d.value)
   const sign = d.sign ? '−1' : '+1'
+  const sigF = formatNumber(d.significand)
+  const sig = `${sigF.exact ? '' : '≈'}${sigF.text}`
 
   const bitCells = (part: BitFieldPart) => {
     const { start: s, length } = PARTS[part]
@@ -102,10 +104,10 @@ export function BitField({ config, goal, onState, completed, reducedMotion }: Wi
         <div className="bf-calc" role="group" aria-label="חישוב הערך">
           <div className="bf-row sign"><span className="bf-key">סימן</span><L>{`S = ${d.sign}`}</L><span className="bf-pair"><span className="bf-then">←</span><L>{`(−1)^${d.sign} = ${sign}`}</L></span></div>
           <div className="bf-row exponent"><span className="bf-key">מעריך</span><L>{`E = ${bits.slice(1, 9)}₂ = ${d.exponent}`}</L><span className="bf-pair"><span className="bf-then">←</span><L>{`e = ${d.exponent} − ${BIAS} = ${sup(d.e)}`}</L></span></div>
-          <div className="bf-row mantissa"><span className="bf-key">מנטיסה</span><L>{`1.${trimMantissa(d.mantissaBits) || '0'}₂`}</L><span className="bf-then">=</span><L>{`${formatNumber(d.significand).text}`}</L><span className="bf-note">הביט החבוי הוא ה-1 שלפני הנקודה</span></div>
+          <div className="bf-row mantissa"><span className="bf-key">מנטיסה</span><L>{`1.${trimMantissa(d.mantissaBits) || '0'}₂`}</L><span className="bf-then">=</span><L>{sig}</L><span className="bf-note">הביט החבוי הוא ה-1 שלפני הנקודה</span></div>
           <div className="bf-row value" aria-live="polite" aria-atomic="true">
             <span className="bf-key">ערך</span>
-            <L>{`${sign} · ${formatNumber(d.significand).text} · 2^${sup(d.e)}`}</L>
+            <L>{`${sign} · ${sig} · 2^${sup(d.e)}`}</L>
             <span className="bf-pair"><span className="bf-then">=</span><strong className="bf-result" data-testid="bitfield-value" dir="ltr">{`${value.exact ? '' : '≈'}${value.text}`}</strong></span>
           </div>
         </div>
@@ -113,7 +115,7 @@ export function BitField({ config, goal, onState, completed, reducedMotion }: Wi
         <div className="bf-calc special" data-testid="bitfield-special" aria-live="polite">
           <strong className="bf-result" data-testid="bitfield-value" dir="ltr">{value.text}</strong>
           <span>
-            {d.kind === 'zero' && 'כל שדה המעריך אפס: זה אפס (מקרה מיוחד, אין ביט חבוי).'}
+            {d.kind === 'zero' && 'שדה המעריך ושדה המנטיסה כולם אפס: זה אפס (מקרה מיוחד, אין ביט חבוי).'}
             {d.kind === 'subnormal' && 'שדה המעריך אפס והמנטיסה לא: מספר זעיר שאינו נורמלי, מחוץ לנושא שלנו.'}
             {d.kind === 'infinity' && 'כל שדה המעריך אחדות והמנטיסה אפס: אינסוף.'}
             {d.kind === 'nan' && `כל שדה המעריך אחדות והמנטיסה לא אפס: ${ltr('NaN')}, לא מספר.`}
