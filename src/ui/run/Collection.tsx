@@ -1,5 +1,6 @@
 import type { Stage } from '../../content/types'
 import { useSave } from '../save'
+import { Prose } from '../Prose'
 import { worlds } from '../worlds'
 import { FlagButton } from './CardView'
 import './run.css'
@@ -19,9 +20,9 @@ export function Collection() {
           <div className="coll-grid">
             {s.cards.map(c => save.knowledge.includes(c.id) ? (
               <article key={c.id} className="kcard" data-testid="kcard">
-                <p className="k-q muted" dir="auto">{c.text}</p>
-                <p className="k-text" dir="auto">{c.knowledge}</p>
-                <span className="source muted" dir="auto">{c.source}</span>
+                <Prose as="p" className="k-q muted" text={c.text} />
+                <Prose as="p" className="k-text" text={c.knowledge} />
+                <Prose className="source muted" text={c.source} />
                 <FlagButton id={c.id} />
               </article>
             ) : (

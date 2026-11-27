@@ -3,6 +3,7 @@ import type { LabPuzzle, Room } from '../../content/types'
 import type { RoomResult } from '../../game/progress'
 import { Hints, REVEAL_AFTER, SolvedVerdict, WRONG_TEXT, useHelped, useSolve } from './roomParts'
 import { checkCode } from './labLogic'
+import { ProseLines } from '../Prose'
 
 type CodePz = Extract<LabPuzzle, { type: 'code' }>
 
@@ -33,7 +34,7 @@ export function CodePuzzle({ room, puzzle }: { room: Room; puzzle: CodePz }) {
 
   return (
     <div className="lab-body">
-      <div className="code-def" dir="auto" data-testid="code-def">{puzzle.definition}</div>
+      <ProseLines className="code-def" data-testid="code-def" text={puzzle.definition} />
       <form className="code-q" onSubmit={submit}>
         <p className="muted code-ask">מה הקידוד של כל ערך? הקלידו את ביטי היציאה.</p>
         {puzzle.inputs.map((inp, i) => {

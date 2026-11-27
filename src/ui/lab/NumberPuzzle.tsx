@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import type { LabPuzzle, Room } from '../../content/types'
 import type { RoomResult } from '../../game/progress'
+import { Prose } from '../Prose'
 import { Hints, REVEAL_AFTER, SolvedVerdict, WRONG_TEXT, useHelped, useSolve } from './roomParts'
 import { checkNumber } from './labLogic'
 
@@ -33,7 +34,7 @@ export function NumberPuzzle({ room, puzzle }: { room: Room; puzzle: NumberPz })
   return (
     <div className="lab-body">
       <form className="num-q" onSubmit={submit}>
-        <label htmlFor="num" className="num-prompt">{puzzle.prompt}</label>
+        <Prose as="label" htmlFor="num" className="num-prompt" text={puzzle.prompt} />
         <div className="num-row">
           <input id="num" data-testid="number-input" className="mono num-input" dir="ltr" autoComplete="off" spellCheck={false}
             value={answer} disabled={!!done} placeholder="…"

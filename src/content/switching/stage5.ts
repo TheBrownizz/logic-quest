@@ -2,7 +2,7 @@ import type { Circuit, Node, Wire } from '../../logic/circuit'
 import type { Out } from '../../logic/boolean'
 import type { Stage } from '../types'
 import { muxTree, romBits } from '../../logic/sizing'
-import { node as n, wire as w } from './helpers'
+import { node as n, wire as w, ltr } from './helpers'
 import { cards5 } from './stage5-cards'
 
 /** MUX 2×1 from gates: Y = S'·I0 + S·I1. Optional per-gate delays for the delay room. */
@@ -111,8 +111,8 @@ export const stage5: Stage = {
       hints: [{ text: 'סכמו את ההשהיות לאורך המסלול הארוך ביותר מכניסה ליציאה.' }],
     },
     {
-      id: 'sw-5-r2', title: 'מרבב 2×1',
-      intro: 'מרבב (MUX) בוחר בין שתי כניסות נתונים לפי קו הבחירה: כש-S = 0 היציאה Y = I0, וכש-S = 1 היציאה Y = I1. בנו אותו משערים.',
+      id: 'sw-5-r2', title: `מרבב ${ltr('2×1')}`,
+      intro: `מרבב ${ltr('(MUX)')} בוחר בין שתי כניסות נתונים לפי קו הבחירה: כש-${ltr('S = 0')} היציאה ${ltr('Y = I0')}, וכש-${ltr('S = 1')} היציאה ${ltr('Y = I1')}. בנו אותו משערים.`,
       puzzle: {
         type: 'circuit',
         spec: { inputs: ['I0', 'I1', 'S'], outputs: ['Y'], rows: [[0], [0], [0], [1], [1], [0], [1], [1]] },
@@ -136,17 +136,17 @@ export const stage5: Stage = {
     },
     {
       id: 'sw-5-r4', title: 'עץ מרבבים',
-      intro: 'צריך MUX 128×1, ובמחסן יש רק רכיבי MUX 4×1. מותר להשאיר כניסות לא מנוצלות. כמה רכיבים נדרשים בסך הכול?',
-      puzzle: { type: 'number', prompt: 'מספר רכיבי MUX 4×1 הנדרשים', answer: '43', check: 'numeric', compute: () => String(muxTree(128, 4).total) },
+      intro: `צריך ${ltr('MUX 128×1')}, ובמחסן יש רק רכיבי ${ltr('MUX 4×1')}. מותר להשאיר כניסות לא מנוצלות. כמה רכיבים נדרשים בסך הכול?`,
+      puzzle: { type: 'number', prompt: `מספר רכיבי ${ltr('MUX 4×1')} הנדרשים`, answer: '43', check: 'numeric', compute: () => String(muxTree(128, 4).total) },
       hints: [
         { text: 'בנו את העץ בשכבות: כל רכיב בשכבה הראשונה בוחר אחת מארבע כניסות נתונים.' },
-        { text: 'שכבה ראשונה: 128 / 4 = 32 רכיבים. ממשיכים עם 32 היציאות שלהם.' },
-        { text: '32 → 8 → 2 → 1. ברכיב האחרון רק שתי כניסות בשימוש.' },
+        { text: `שכבה ראשונה: ${ltr('128 / 4 = 32')} רכיבים. ממשיכים עם 32 היציאות שלהם.` },
+        { text: `${ltr('32 → 8 → 2 → 1')}. ברכיב האחרון רק שתי כניסות בשימוש.` },
       ],
     },
     {
       id: 'sw-5-r5', title: 'מחבר מלא',
-      intro: 'מחבר מלא (FA) מחבר שלושה ביטים: A, B ונשא נכנס Cin. הדרך הקלאסית: שני HA ושער OR (11 שערים). לשלושה כוכבים צריך פחות.',
+      intro: `מחבר מלא ${ltr('(FA)')} מחבר שלושה ביטים: A, B ונשא נכנס Cin. הדרך הקלאסית: שני HA ושער OR (11 שערים). לשלושה כוכבים צריך פחות.`,
       puzzle: {
         type: 'circuit',
         spec: { inputs: ['A', 'B', 'Cin'], outputs: ['Cout', 'S'], rows: [[0, 0], [0, 1], [0, 1], [1, 0], [0, 1], [1, 0], [1, 0], [1, 1]] },
@@ -154,22 +154,22 @@ export const stage5: Stage = {
         unlocksChip: { name: 'FA', inputs: ['A', 'B', 'Cin'], outputs: ['Cout', 'S'] },
       },
       hints: [
-        { text: 'התחילו מ-HA(A,B), אחריו HA(S₁,Cin), ו-Cout = C₁ + C₂. זה עובד, אבל עולה 11 שערים.' },
-        { text: 'לחיסכון: Cout = AB + Cin(A + B). יש OR מוכן, ו-NAND(NAND(A,B), NAND(Cin, A+B)) נותן בדיוק את זה.' },
-        { text: 'X = NAND(NAND(A,B), A+B) הוא XNOR(A,B). באותו טריק: S = NAND(NAND(Cin,X), Cin+X). סך הכול 8 שערים.' },
+        { text: `התחילו מ-${ltr('HA(A,B)')}, אחריו ${ltr('HA(S₁,Cin)')}, ו-${ltr('Cout = C₁ + C₂')}. זה עובד, אבל עולה 11 שערים.` },
+        { text: `לחיסכון: ${ltr('Cout = AB + Cin(A + B)')}. יש OR מוכן, ו-${ltr('NAND(NAND(A,B), NAND(Cin, A+B))')} נותן בדיוק את זה.` },
+        { text: `${ltr('X = NAND(NAND(A,B), A+B)')} הוא ${ltr('XNOR(A,B)')}. באותו טריק: ${ltr('S = NAND(NAND(Cin,X), Cin+X)')}. סך הכול 8 שערים.` },
       ],
     },
     {
       id: 'sw-5-r6', title: 'מחבר 4 ביטים',
-      intro: 'שרשרו ארבעה מחברים מלאים למחבר אדווה (Ripple Carry) של 4 ביטים: הנשא היוצא מכל שלב נכנס לשלב הבא.',
+      intro: `שרשרו ארבעה מחברים מלאים למחבר אדווה ${ltr('(Ripple Carry)')} של 4 ביטים: הנשא היוצא מכל שלב נכנס לשלב הבא.`,
       puzzle: {
         type: 'circuit', spec: adderSpec(4), allowed: ['NAND', 'OR'], optimalGates: 32, reference: rippleAdder(4),
         unlocksChip: { name: 'ADD4', inputs: ['A0', 'A1', 'A2', 'A3', 'B0', 'B1', 'B2', 'B3', 'Cin'], outputs: ['Cout', 'S0', 'S1', 'S2', 'S3'] },
       },
       hints: [
-        { text: 'כל FA מקבל A_i ו-B_i. ל-FA הראשון נכנס Cin.' },
-        { text: 'חברו את Cout של שלב i לכניסת Cin של שלב i+1, ואת Cout של השלב האחרון ליציאה Cout.' },
-        { text: 'לשלושה כוכבים השתמשו ב-FA של 8 שערים: 4 · 8 = 32.' },
+        { text: `כל FA מקבל ${ltr('A_i')} ו-${ltr('B_i')}. ל-FA הראשון נכנס Cin.` },
+        { text: `חברו את Cout של שלב i לכניסת Cin של שלב ${ltr('i+1')}, ואת Cout של השלב האחרון ליציאה Cout.` },
+        { text: `לשלושה כוכבים השתמשו ב-FA של 8 שערים: ${ltr('4 · 8 = 32')}.` },
       ],
     },
     {
@@ -178,17 +178,17 @@ export const stage5: Stage = {
       puzzle: { type: 'number', prompt: 'כמה ביטים צריך ה-ROM להכיל?', answer: '2560', check: 'numeric', compute: () => String(romBits(9, 5)) },
       hints: [
         { text: 'ספרו כניסות: הן קווי הכתובת. ספרו יציאות: הן רוחב המילה.' },
-        { text: '9 קווי כתובת (A0–A3, B0–B3, Cin) ו-5 יציאות (S0–S3, Cout).' },
-        { text: 'גודל = 2⁹ מילים · 5 ביטים.' },
+        { text: `9 קווי כתובת ${ltr('(A0–A3, B0–B3, Cin)')} ו-5 יציאות ${ltr('(S0–S3, Cout)')}.` },
+        { text: `גודל: ${ltr('2⁹ · 5')} ביטים (${ltr('2⁹')} מילים של 5 ביטים).` },
       ],
     },
     {
       id: 'sw-5-r8', title: 'מחבר/מחסר: גלישה',
-      intro: 'מחבר/מחסר של 3 ביטים: שער XOR (75 ns) הופך את B_i כש-M = 1, ו-M נכנס גם כנשא הראשון. כל FA הוא 100 ns מכל כניסה לכל יציאה, ו-M כניסה אידיאלית ללא השהיה. V = C₃ ⊕ C₂ מזהה גלישה.',
+      intro: `מחבר/מחסר של 3 ביטים: שער ${ltr('XOR (75 ns)')} הופך את ${ltr('B_i')} כש-${ltr('M = 1')}, ו-M נכנס גם כנשא הראשון. כל FA הוא 100 ns מכל כניסה לכל יציאה, ו-M כניסה אידיאלית ללא השהיה. ${ltr('V = C₃ ⊕ C₂')} מזהה גלישה.`,
       puzzle: { type: 'delay', circuit: adderSubtractor(3), askAt: 'V', answer: 450 },
       hints: [
         { text: 'כניסות ה-B עוברות XOR לפני ה-FA הראשון, ולכן הוא מתחיל לעבוד רק ב-75 ns.' },
-        { text: 'הנשא מתגלגל: כל FA מוסיף 100 ns. C₃ מוכן ב-75 + 3·100.' },
+        { text: `הנשא מתגלגל: כל FA מוסיף 100 ns. C₃ מוכן ב-${ltr('75 + 3·100')}.` },
         { text: 'V הוא XOR נוסף על C₃: עוד 75 ns.' },
       ],
     },

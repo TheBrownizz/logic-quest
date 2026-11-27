@@ -179,6 +179,15 @@ describe('switching content', () => {
     }
   })
 
+  /** Every user-visible text of a stage: card fields, room fields, and each code-definition line on its own. */
+  const textsOf = (s: Stage): Array<[string, string]> => [
+    ...s.cards.flatMap(c => [c.text, c.knowledge, ...(c.kind === 'claim' ? [...c.reasons, c.examReason] : c.options)].map(t => [c.id, t] as [string, string])),
+    ...s.rooms.flatMap(r => {
+      const p = r.puzzle as { prompt?: string; definition?: string }
+      return [r.title, r.intro, ...r.hints.map(h => h.text), p.prompt ?? '', ...(p.definition ?? '').split('\n')].map(t => [r.id, t] as [string, string])
+    }),
+  ]
+
   /** Minus signs next to digits must sit inside LTR isolates (U+2066…U+2069), or RTL text flips them. */
   const looseMinus = (text: string) => {
     const t = text.replace(/⁦[^⁩]*⁩/g, '')
@@ -189,15 +198,42 @@ describe('switching content', () => {
     expect(looseMinus('-128 עד 127')).toBe(true)
     expect(looseMinus('⁦−128⁩ עד 127')).toBe(false)
     expect(looseMinus('המשלים ל-2')).toBe(false)
-    for (const s of stages) {
-      for (const c of s.cards) {
-        const texts = [c.text, c.knowledge, ...(c.kind === 'claim' ? [...c.reasons, c.examReason] : c.options)]
-        for (const t of texts) expect(looseMinus(t), `${c.id}: "${t}"`).toBe(false)
-      }
-      for (const r of s.rooms) {
-        const p = r.puzzle as { prompt?: string; definition?: string }
-        for (const t of [r.title, r.intro, ...r.hints.map(h => h.text), p.prompt ?? '', p.definition ?? '']) expect(looseMinus(t), `${r.id}: "${t}"`).toBe(false)
-      }
-    }
+    for (const s of stages) for (const [id, t] of textsOf(s)) expect(looseMinus(t), `${id}: "${t}"`).toBe(false)
   })
+
+  /**
+   * A Hebrew string renders right-to-left, so any formula in it must sit in an LTR isolate (ltr()).
+   * Fails when a formula character touches (spaces allowed) a Latin letter or a digit outside an isolate.
+   * Parentheses around text that contains Hebrew are prose punctuation and are ignored.
+   * Strings with no Hebrew render as LTR (see Prose) and are not checked.
+   */
+  const HEB = /[֐-׿]/
+  const looseFormula = (text: string): string | null => {
+    if (!HEB.test(text)) return null
+    let t = text.replace(/⁦[^⁩]*⁩/g, ' ').replace(/[A-Za-z]'[a-z]/g, ' ') // drop isolates and English contractions (Don't)
+    for (let prev = ''; prev !== t;) { prev = t; t = t.replace(/\(([^()]*)\)/g, (m, inner: string) => (HEB.test(inner) ? `\u0001${inner}\u0002` : m)) }
+    const ALNUM = 'A-Za-z0-9²³¹⁰-⁹₀-₉'
+    const OP = "=+·⊕'≤≥<>^_Σ()−→×≠"
+    const m = new RegExp(`[${ALNUM}] *[${OP}]|[${OP}] *[${ALNUM}]`).exec(t)
+    return m ? m[0] : null
+  }
+  it('formulas in Hebrew text are LTR-isolated', () => {
+    expect(looseFormula('במשוואה (5)_r · (6)_r = (36)_r מצאו')).not.toBeNull()
+    expect(looseFormula('למשל 2^4 = 16 פונקציות')).not.toBeNull()
+    expect(looseFormula("הצורה (A·B)' שווה")).not.toBeNull()
+    expect(looseFormula('כאשר 0 ≤ i ≤ 3')).not.toBeNull()
+    expect(looseFormula('ערך r−1 בכל ספרה')).not.toBeNull()
+    expect(looseFormula('במשוואה ⁦(5)_r · (6)_r = (36)_r⁩ מצאו')).toBeNull()
+    expect(looseFormula('את המשלים של 04180 (5 ספרות)')).toBeNull()
+    expect(looseFormula('שני שערי NAND (בלי OR)')).toBeNull()
+    expect(looseFormula("A + B = A'")).toBeNull()
+    expect(looseFormula("תאי Don't Care")).toBeNull()
+    const bad: string[] = []
+    for (const s of stages) for (const [id, t] of textsOf(s)) {
+      const hit = looseFormula(t)
+      if (hit) bad.push(`${id}: [${hit}] "${t}"`)
+    }
+    expect(bad, bad.join('\n')).toEqual([])
+  })
+
 })

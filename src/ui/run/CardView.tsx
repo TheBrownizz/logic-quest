@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import type { Card } from '../../content/types'
 import { useSave } from '../save'
+import { Prose } from '../Prose'
 
 const LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו']
 
@@ -21,13 +22,13 @@ export function Reveal({ card, correct, examReason }: { card: Card; correct: boo
       <p className="v-label">{correct ? 'נכון!' : 'לא נכון'}</p>
       {card.kind === 'claim' && <p className="truth">{card.isTrue ? 'הטענה נכונה' : 'הטענה לא נכונה'}</p>}
       {examReason && (
-        <p className="exam"><b>ככה כותבים במבחן:</b> <span dir="auto">{examReason}</span></p>
+        <p className="exam"><b>ככה כותבים במבחן:</b> <Prose text={examReason} /></p>
       )}
       {!correct && (
         <div className="knowledge flip" data-testid="knowledge">
           <span className="k-label">קלף ידע חדש</span>
-          <p dir="auto">{card.knowledge}</p>
-          <span className="source muted" dir="auto">{card.source}</span>
+          <Prose as="p" text={card.knowledge} />
+          <Prose className="source muted" text={card.source} />
         </div>
       )}
     </div>
@@ -62,7 +63,7 @@ export function CardView({ card, order, onReveal, onNext }: {
   return (
     <article className="run-card" data-kind={card.kind}>
       <div className="card-top"><span className="run-kind">{card.kind === 'claim' ? 'טענה' : 'שאלה'}</span><FlagButton id={card.id} /></div>
-      <p className="card-text" dir="auto">{card.text}</p>
+      <Prose as="p" className="card-text" text={card.text} />
 
       {card.kind === 'claim' ? (
         <>
@@ -80,7 +81,7 @@ export function CardView({ card, order, onReveal, onNext }: {
               {order.map(i => (
                 <button key={i} type="button" data-testid={`opt-${i}`} disabled={revealed} onClick={() => pick(i)}
                   className={`run-opt${picked === i ? ' chosen' : ''}${revealed && i === card.correctReason ? ' right' : ''}${revealed && picked === i && i !== card.correctReason ? ' wrong' : ''}`}>
-                  <span dir="auto">{card.reasons[i]}</span>
+                  <Prose text={card.reasons[i]} />
                 </button>
               ))}
             </div>
@@ -92,7 +93,7 @@ export function CardView({ card, order, onReveal, onNext }: {
             <button key={i} type="button" data-testid={`opt-${i}`} disabled={revealed} onClick={() => pick(i)}
               className={`run-opt${picked === i ? ' chosen' : ''}${revealed && i === card.correct ? ' right' : ''}${revealed && picked === i && i !== card.correct ? ' wrong' : ''}`}>
               <span className="letter" aria-hidden>{LETTERS[pos]}</span>
-              <span dir="auto">{card.options[i]}</span>
+              <Prose text={card.options[i]} />
             </button>
           ))}
         </div>

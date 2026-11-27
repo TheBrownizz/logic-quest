@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { buildDeck } from '../../game/deck'
 import { answer, mulberry32, startRun, MAX_LIVES, type RunState } from '../../game/run'
 import { hrefs } from '../router'
+import { Prose } from '../Prose'
 import { useSave } from '../save'
 import { NotFound } from '../StageScreen'
 import { findWorld, worlds } from '../worlds'
@@ -101,7 +102,7 @@ function Run({ stageId, worldId, deckCards, seed, onAgain }: {
           <>
             <h2 className="sub">קלפי ידע חדשים</h2>
             <ul className="mistakes">
-              {run.mistakes.map(id => <li key={id}><a href={hrefs.collection} dir="auto">{cardById.get(id)?.text ?? id}</a></li>)}
+              {run.mistakes.map(id => <li key={id}><Prose as="a" href={hrefs.collection} text={cardById.get(id)?.text ?? id} /></li>)}
             </ul>
           </>
         ) : <p className="ok">ריצה נקייה, בלי טעויות.</p>}

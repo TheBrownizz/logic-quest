@@ -3,6 +3,7 @@ import type { Hint } from '../../content/types'
 import type { RoomResult, SaveData } from '../../game/progress'
 import { stars } from '../../game/rules'
 import { useSave } from '../save'
+import { Prose } from '../Prose'
 import { Stars } from '../Stars'
 import { mergeResult } from './labLogic'
 
@@ -36,7 +37,7 @@ export function Hints({ hints, shown, onReveal }: { hints: Hint[]; shown: number
   if (hints.length === 0) return null
   return (
     <div className="hints">
-      {hints.slice(0, shown).map((h, i) => <p key={i} className="hint" data-testid="hint"><span aria-hidden>💡</span> {h.text}</p>)}
+      {hints.slice(0, shown).map((h, i) => <Prose key={i} as="p" className="hint" data-testid="hint" text={h.text}><span aria-hidden>💡</span> </Prose>)}
       {shown < hints.length && (
         <button type="button" className="btn ghost" onClick={onReveal}>
           רמז <span className="mono">{shown + 1}/{hints.length}</span>

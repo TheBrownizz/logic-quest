@@ -7,6 +7,7 @@ import { circuitTruthTable, simulate, usesOnly, type Circuit } from '../../logic
 import { hrefs } from '../router'
 import { useSave } from '../save'
 import { NotFound } from '../StageScreen'
+import { Prose } from '../Prose'
 import { Stars } from '../Stars'
 import { CircuitEditor } from './CircuitEditor'
 import { CodePuzzle } from './CodePuzzle'
@@ -30,7 +31,7 @@ export function LabRoom({ roomId }: { roomId: string }) {
     <section className="lab">
       <a className="back" href={hrefs.stage(world.id, stage.id)}>→ {stage.title}</a>
       <h1 className="title">{room.title}</h1>
-      <p className="intro">{room.intro}</p>
+      <Prose as="p" className="intro" text={room.intro} />
       {pz.type === 'circuit' ? <CircuitRoom key={room.id} room={room} puzzle={pz} />
         : pz.type === 'delay' ? <DelayPuzzle key={room.id} room={room} puzzle={pz} />
           : pz.type === 'kmap' ? <KMapPuzzle key={room.id} room={room} puzzle={pz} />

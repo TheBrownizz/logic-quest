@@ -11,7 +11,8 @@ import type { Card } from '../../src/content/types'
 
 /** Re-derives card answers with the logic core (self-review guard). */
 const card = (id: string): Card => switchingWorld.stages.flatMap(s => s.cards).find(c => c.id === id)!
-const mcqAnswer = (id: string) => { const c = card(id); if (c.kind !== 'mcq') throw new Error(id); return c.options[c.correct] }
+/** The correct option's text, with LTR isolates (U+2066/U+2069) removed and no-break spaces as spaces. */
+const mcqAnswer = (id: string) => { const c = card(id); if (c.kind !== 'mcq') throw new Error(id); return c.options[c.correct].replace(/[\u2066\u2069]/g, '').replace(/\u00A0/g, ' ') }
 const claimTruth = (id: string) => { const c = card(id); if (c.kind !== 'claim') throw new Error(id); return c.isTrue }
 const bases = (l: (r: number) => number, rr: (r: number) => number, digits: string[]) =>
   findBases(l, rr).filter(r => digits.every(d => isValidIn(d, r)))
