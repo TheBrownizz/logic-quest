@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { kmapLayout } from '../../../logic/kmap'
 import type { WidgetProps } from './types'
 import {
-  VAR_NAMES, allRows, bitsOf, finalState, groupInfo, initial, mapHeaders, neighbours, rowsExpression, toggle, valueAt,
+  VAR_NAMES, allRows, bitsOf, finalState, groupInfo, initial, mapHeaders, maxtermTerm, mintermTerm, neighbours, rowsExpression, toggle, valueAt,
   type TruthToMapConfig, type TruthToMapGoal, type TruthToMapState,
 } from './truthToMapLogic'
 import './TruthToMap.css'
@@ -34,6 +34,9 @@ export function TruthToMap({ config, goal, onState, completed, reducedMotion }: 
   const rowEls = useRef<Record<number, HTMLElement | null>>({})
   const cellEls = useRef<Record<number, HTMLElement | null>>({})
   const timers = useRef<number[]>([])
+  const resetBtn = useRef<HTMLButtonElement>(null)
+  /** Keeps keyboard focus when the focused control is about to become disabled: moves it to `el` (or the reset button). */
+  const refocus = (el?: HTMLElement | null) => { window.setTimeout(() => (el ?? resetBtn.current)?.focus(), 0) }
 
   useEffect(() => { onState(st) }, [st]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => { timers.current.forEach(clearTimeout) }, [])
@@ -83,7 +86,7 @@ export function TruthToMap({ config, goal, onState, completed, reducedMotion }: 
   const nbrOf = (m: number) => nbrs.find(x => x.m === m)
   const nextRow = rows.find(m => !st.placed.includes(m))
   const mapFilled = !rowsView && landed.length === rows.length
-  const group = config.groups && !rowsView && st.picked.length > 0 ? groupInfo(n, st.picked) : null
+  const group = config.groups && !rowsView && st.picked.length > 0 ? groupInfo(n, st.picked, config) : null
   const style = config.terms ?? 'sop'
   const badRow = (m: number) => rowsView && st.picked.includes(m) && valueAt(config, m) !== (style === 'pos' ? 0 : 1)
 
@@ -94,9 +97,10 @@ export function TruthToMap({ config, goal, onState, completed, reducedMotion }: 
       return { expr: rowsExpression(n, st.picked, style), note, bad }
     }
     if (focus === null) return { expr: '', note: mapFilled ? 'לחצו על תא במפה כדי לראות את שכניו.' : '', bad: false }
-    if (group && !group.valid) return { expr: '', note: 'זו לא קבוצה חוקית: מספר התאים חייב להיות חזקה של 2, והם יוצרים מלבן (גם דרך קצה המפה).', bad: true }
-    if (group) return { expr: group.term, note: `קבוצה חוקית של ${st.picked.length} ${st.picked.length === 1 ? 'תא' : 'תאים'}. האיבר שלה:`, bad: false }
     const wrapNote = nbrs.some(x => x.wraps) ? ' הסימן ↺ מציין שכן מעבר לקצה המפה.' : ''
+    if (group?.coversZero) return { expr: '', note: 'הקבוצה תופסת תא 0, ולכן היא לא קבוצה של הפונקציה: קבוצה מכילה רק תאי 1 ו-X.', bad: true }
+    if (group && !group.valid) return { expr: '', note: 'זו לא קבוצה חוקית: מספר התאים חייב להיות חזקה של 2, והם יוצרים מלבן (גם דרך קצה המפה).', bad: true }
+    if (group) return { expr: group.term, note: `${nbrs.length ? `השכנים מסומנים, והאות על כל שכן היא המשתנה שבו הוא שונה.${wrapNote} ` : ''}קבוצה חוקית של ${st.picked.length} ${st.picked.length === 1 ? 'תא' : 'תאים'}. האיבר שלה:`, bad: false }
     return { expr: '', note: `שכני תא ${focus}: האות על כל שכן היא המשתנה היחיד שבו הוא שונה.${wrapNote}`, bad: false }
   })()
 
@@ -122,7 +126,12 @@ export function TruthToMap({ config, goal, onState, completed, reducedMotion }: 
                 disabled={!rowsView && placed}
                 aria-pressed={rowsView ? sel : undefined}
                 aria-label={rowsView ? `שורה ${m}, F ${show(v)}` : `שלחו את שורה ${m} למפה`}
-                onClick={() => (rowsView ? pick(m) : place([m]))}
+                onClick={() => {
+                  if (rowsView) { pick(m); return }
+                  const after = rows.find(x => x > m && !st.placed.includes(x)) ?? rows.find(x => x !== m && !st.placed.includes(x))
+                  place([m])
+                  refocus(after === undefined ? null : rowEls.current[after])
+                }}
                 onMouseEnter={() => setHover(m)} onMouseLeave={() => setHover(h => (h === m ? null : h))}
                 onFocus={() => setHover(m)} onBlur={() => setHover(h => (h === m ? null : h))}
               >
@@ -171,18 +180,27 @@ export function TruthToMap({ config, goal, onState, completed, reducedMotion }: 
       <div className="ttm-bar" dir="rtl">
         {!rowsView && !config.startPlaced && (
           <>
-            <button type="button" className="btn" data-testid="ttm-place-next" disabled={nextRow === undefined} onClick={() => nextRow !== undefined && place([nextRow])}>שלחו את השורה הבאה</button>
-            <button type="button" className="btn" data-testid="ttm-place-all" disabled={nextRow === undefined} onClick={() => place(rows.filter(m => !st.placed.includes(m)))}>שלחו הכול</button>
+            <button type="button" className="btn" data-testid="ttm-place-next" disabled={nextRow === undefined} onClick={() => { if (nextRow === undefined) return; place([nextRow]); if (st.placed.length + 1 === rows.length) refocus() }}>שלחו את השורה הבאה</button>
+            <button type="button" className="btn" data-testid="ttm-place-all" disabled={nextRow === undefined} onClick={() => { place(rows.filter(m => !st.placed.includes(m))); refocus() }}>שלחו הכול</button>
           </>
         )}
         {(st.picked.length > 0 || (!rowsView && !config.startPlaced && st.placed.length > 0)) && (
-          <button type="button" className="btn ghost" data-testid="ttm-reset" onClick={reset}>{!rowsView && !config.startPlaced ? 'מההתחלה' : 'נקו בחירה'}</button>
+          <button type="button" className="btn ghost" data-testid="ttm-reset" ref={resetBtn} onClick={reset}>{!rowsView && !config.startPlaced ? 'מההתחלה' : 'נקו בחירה'}</button>
         )}
       </div>
 
       <div className="ttm-info" dir="rtl" role="status" data-testid="ttm-info">
         {info.note && <p className={`ttm-note ${info.bad ? 'bad' : ''}`}>{info.note}</p>}
-        {info.expr && <div className="ttm-expr" dir="ltr" data-testid="ttm-expr">{info.expr}</div>}
+        {info.expr && (
+          <div className="ttm-expr" dir="ltr" data-testid="ttm-expr">
+            {rowsView && st.picked.length > 0
+              ? <>F = {[...new Set(st.picked)].sort((a, b) => a - b).map((m, i) => (
+                  // each term stays on one line; a long formula breaks only between terms
+                  <span key={m}>{style === 'sop' && i > 0 ? ' + ' : ''}<span className="ttm-term">{style === 'pos' ? maxtermTerm(n, m) : mintermTerm(n, m)}</span>{style === 'pos' ? <wbr /> : null}</span>
+                ))}</>
+              : info.expr}
+          </div>
+        )}
       </div>
 
       {flights.map(f => (

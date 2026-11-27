@@ -84,6 +84,13 @@ test('4.3: a group with an X cell shows its term', async ({ page }) => {
   await seed(page, { ...stage4Save(), lessons: { ...stage4Save().lessons, [l3.id]: { stepId: 'pick-x', done: false } } })
   await page.goto(at(l3.id, 'pick-x'))
   await expect(page.getByTestId('ttm-cell-6')).toContainText('X')
+  // a rectangle that takes a 0 cell is not a group of the function
+  await page.getByTestId('ttm-cell-0').click()
+  await page.getByTestId('ttm-cell-4').click()
+  await expect(page.getByTestId('ttm-info')).toContainText('הקבוצה תופסת תא 0')
+  await expect(page.getByTestId('ttm-expr')).toHaveCount(0)
+  await page.getByTestId('ttm-cell-0').click()
+  await page.getByTestId('ttm-cell-4').click()
   await page.getByTestId('ttm-cell-4').click()
   await page.getByTestId('ttm-cell-5').click()
   await page.getByTestId('ttm-cell-7').click()
@@ -103,6 +110,29 @@ test('the widget fits at 400px and works with the keyboard', async ({ page }) =>
   await page.keyboard.press('Enter')
   await expect(page.getByTestId('ttm-cell-0')).toHaveAttribute('data-picked', 'true')
   if (SHOTS) await page.getByTestId('widget-area').screenshot({ path: `${SHOTS}/task-5-nbr-400.png` })
+})
+
+test('keyboard focus survives sending rows; group and rows views at 400px', async ({ page }) => {
+  await page.setViewportSize({ width: 400, height: 900 })
+  const base = stage4Save()
+  await seed(page, { ...base, lessons: { ...base.lessons, [l1.id]: { stepId: 'pick-max', done: false }, [l2.id]: { stepId: 'fly', done: false }, [l3.id]: { stepId: 'pick-x', done: false } } })
+  // sending a row by keyboard keeps focus: it moves to the next row, and after the last one to the reset button
+  await page.goto(at(l2.id, 'fly'))
+  await page.getByTestId('ttm-row-0').focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('ttm-row-1')).toBeFocused()
+  await page.getByTestId('ttm-place-all').focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('ttm-reset')).toBeFocused()
+  // the group view and the rows view at 400px
+  await page.goto(at(l3.id, 'pick-x'))
+  for (const m of [4, 5, 6, 7]) await page.getByTestId(`ttm-cell-${m}`).click()
+  await noHorizontalScroll(page)
+  if (SHOTS) await page.getByTestId('widget-area').screenshot({ path: `${SHOTS}/task-5-group-400.png` })
+  await page.goto(at(l1.id, 'pick-max'))
+  for (const m of [0, 1, 2, 4]) await page.getByTestId(`ttm-row-${m}`).click()
+  await noHorizontalScroll(page)
+  if (SHOTS) await page.getByTestId('widget-area').screenshot({ path: `${SHOTS}/task-5-rows-400.png` })
 })
 
 test('every stage-4 lesson can be walked to its end at 400px without horizontal scroll', async ({ page }) => {

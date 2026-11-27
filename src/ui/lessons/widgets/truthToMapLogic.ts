@@ -130,11 +130,15 @@ export function rowsExpression(n: number, picked: number[], style: 'sop' | 'pos'
     : `F = ${ms.map(m => mintermTerm(n, m)).join(' + ')}`
 }
 
-/** Whether the selected cells are one legal group (2^k cells forming a rectangle, edges included), and the term it gives. */
-export function groupInfo(n: 2 | 3 | 4, picked: number[]): { valid: boolean; term: string } {
+/**
+ * Whether the selected cells are one legal group: 2^k cells forming a rectangle (edges included) and, when the
+ * function is given, none of them a 0 cell (X cells are allowed). Returns the term the group gives when legal.
+ */
+export function groupInfo(n: 2 | 3 | 4, picked: number[], c?: TruthToMapConfig): { valid: boolean; term: string; coversZero: boolean } {
+  if (c && picked.some(m => valueAt(c, m) === 0)) return { valid: false, term: '', coversZero: true }
   const cells = picked.map(m => cellOf(n, m))
   const t = groupToTerm(n, { cells })
-  return t ? { valid: true, term: formatSOP([t], [...VAR_NAMES.slice(0, n)]) } : { valid: false, term: '' }
+  return t ? { valid: true, term: formatSOP([t], [...VAR_NAMES.slice(0, n)]), coversZero: false } : { valid: false, term: '', coversZero: false }
 }
 
 export const toggle = (list: number[], m: number) => (list.includes(m) ? list.filter(x => x !== m) : [...list, m])

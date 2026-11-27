@@ -169,15 +169,15 @@ describe('4.2: Karnaugh maps (re-derived)', () => {
     expect(cells).toEqual([3, 7])
     expect(w.goal).toEqual({ kind: 'pick', cells })
     expect(cells.every(m => valueAt(w.config as never, m) === 1)).toBe(true)
-    expect(groupInfo(3, cells)).toEqual({ valid: true, term: 'BC' })
+    expect(groupInfo(3, cells)).toMatchObject({ valid: true, term: 'BC' })
     expect(plain(w.prompt)).toContain('BC')
   })
   it('check-group: six cells is the only illegal one; corners, centre and a row are legal groups', () => {
     const s = step(l2, 'check-group', 'check')
     expect(s.correct).toBe(2)
-    expect(groupInfo(4, [0, 2, 8, 10])).toEqual({ valid: true, term: "B'D'" })
-    expect(groupInfo(4, [5, 7, 13, 15])).toEqual({ valid: true, term: 'BD' })
-    expect(groupInfo(4, [0, 1, 3, 2])).toEqual({ valid: true, term: "A'B'" })
+    expect(groupInfo(4, [0, 2, 8, 10])).toMatchObject({ valid: true, term: "B'D'" })
+    expect(groupInfo(4, [5, 7, 13, 15])).toMatchObject({ valid: true, term: 'BD' })
+    expect(groupInfo(4, [0, 1, 3, 2])).toMatchObject({ valid: true, term: "A'B'" })
     // every set of six cells is rejected
     expect(groupInfo(4, [0, 1, 3, 2, 6, 4]).valid).toBe(false)
     expect(groupInfo(4, [4, 5, 7, 6, 12, 13]).valid).toBe(false)
@@ -228,7 +228,7 @@ describe('4.3: Don\'t Care and the table method (re-derived)', () => {
     expect(cells).toEqual([4, 5, 6, 7])
     expect(cells.filter(m => cfg.dontCares.includes(m))).toEqual([6])
     expect(cells.every(m => cfg.minterms.includes(m) || cfg.dontCares.includes(m))).toBe(true)
-    expect(groupInfo(4, cells)).toEqual({ valid: true, term: "A'B" })
+    expect(groupInfo(4, cells)).toMatchObject({ valid: true, term: "A'B" })
   })
   it('the gain: BC\' + A\'BD (5 literals) without X, BC\' + A\'B (4) with X, so 1 literal saved', () => {
     const f = { n: 4, m: [4, 5, 7, 12, 13], d: [6, 14] }

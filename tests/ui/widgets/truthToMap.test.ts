@@ -95,17 +95,35 @@ describe('truthToMap logic', () => {
   })
 
   it('groupInfo accepts rectangles (edges included) and gives their term', () => {
-    expect(groupInfo(3, [3, 7])).toEqual({ valid: true, term: 'BC' })
-    expect(groupInfo(4, [0, 2, 8, 10])).toEqual({ valid: true, term: "B'D'" })
-    expect(groupInfo(4, [5, 7, 13, 15])).toEqual({ valid: true, term: 'BD' })
+    expect(groupInfo(3, [3, 7])).toMatchObject({ valid: true, term: 'BC' })
+    expect(groupInfo(4, [0, 2, 8, 10])).toMatchObject({ valid: true, term: "B'D'" })
+    expect(groupInfo(4, [5, 7, 13, 15])).toMatchObject({ valid: true, term: 'BD' })
     expect(groupInfo(4, [0, 1, 2]).valid).toBe(false)
     expect(groupInfo(4, [0, 3]).valid).toBe(false)
     expect(groupInfo(3, [0, 1, 3]).valid).toBe(false)
-    expect(groupInfo(3, [0, 1, 2, 3, 4, 5, 6, 7])).toEqual({ valid: true, term: '1' })
+    expect(groupInfo(3, [0, 1, 2, 3, 4, 5, 6, 7])).toMatchObject({ valid: true, term: '1' })
   })
 
   it('toggle adds and removes', () => {
     expect(toggle([1, 2], 3)).toEqual([1, 2, 3])
     expect(toggle([1, 2], 1)).toEqual([2])
+  })
+})
+
+describe('groupInfo with the function: a group may hold 1 and X cells, never a 0 cell', () => {
+  const x43: TruthToMapConfig = { nVars: 4, minterms: [4, 5, 7, 12, 13], dontCares: [6, 14] }
+  it('a rectangle that takes a 0 cell is not a legal group of the function', () => {
+    expect(groupInfo(4, [0, 4], x43)).toEqual({ valid: false, term: '', coversZero: true })
+    expect(groupInfo(3, [0, 1], maj)).toEqual({ valid: false, term: '', coversZero: true })
+    // without the function only the shape is checked
+    expect(groupInfo(4, [0, 4])).toEqual({ valid: true, term: "A'C'D'", coversZero: false })
+  })
+  it('X cells are allowed', () => {
+    expect(groupInfo(4, [4, 5, 6, 7], x43)).toEqual({ valid: true, term: "A'B", coversZero: false })
+    expect(groupInfo(4, [6, 14], x43)).toEqual({ valid: true, term: "BCD'", coversZero: false })
+    expect(groupInfo(3, [3, 7], maj)).toEqual({ valid: true, term: 'BC', coversZero: false })
+  })
+  it('a bad shape of 1 cells is still not legal, and not a 0 problem', () => {
+    expect(groupInfo(4, [4, 5, 7], x43)).toEqual({ valid: false, term: '', coversZero: false })
   })
 })

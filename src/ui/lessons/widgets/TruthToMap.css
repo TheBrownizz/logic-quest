@@ -58,6 +58,8 @@
 .ttm-bar .btn { margin: 0; }
 .ttm-info { min-height: 2.6em; text-align: center; max-width: 560px; }
 .ttm-expr { font-family: var(--font-mono); font-size: 1.15rem; font-weight: 700; color: var(--amber); overflow-wrap: anywhere; margin-top: 4px; }
+.ttm-term { white-space: nowrap; }
+.ttm-expr { overflow-wrap: normal; }
 .ttm-note { margin: 0; font-size: .92rem; color: var(--muted); line-height: 1.6; }
 .ttm-note.bad { color: var(--danger); }
 
