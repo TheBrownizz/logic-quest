@@ -55,7 +55,23 @@ function RoomView({ world, stage, room }: NonNullable<ReturnType<typeof findRoom
           : pz.type === 'kmap' ? <KMapPuzzle key={key} room={room} puzzle={pz} onRestart={restart} />
             : pz.type === 'number' ? <NumberPuzzle key={key} room={room} puzzle={pz} onRestart={restart} />
               : <CodePuzzle key={key} room={room} puzzle={pz} onRestart={restart} />}
+      {save.rooms[room.id]?.solved && <NextRoom world={world} stage={stage} room={room} />}
     </section>
+  )
+}
+
+/** After a solve: the next room of the stage, or back to the stage from its last room. */
+function NextRoom({ world, stage, room }: NonNullable<ReturnType<typeof findRoom>>) {
+  const [save] = useSave()
+  const i = stage.rooms.findIndex(r => r.id === room.id)
+  const next = stage.rooms[i + 1]
+  const allSolved = stage.rooms.every(r => save.rooms[r.id]?.solved)
+  return (
+    <div className="lab-next">
+      {next
+        ? <a className="btn primary" data-testid="next-room" href={hrefs.room(next.id)}>לחדר הבא ←</a>
+        : <a className="btn primary" data-testid="next-room" href={hrefs.stage(world.id, stage.id)}>{allSolved ? 'השלב הושלם · חזרה לשלב' : 'חזרה לשלב'}</a>}
+    </div>
   )
 }
 

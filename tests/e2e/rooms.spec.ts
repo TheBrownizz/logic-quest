@@ -124,3 +124,18 @@ test('I1: number room hint, solve, התחל מחדש, solve again earns three st
   await page.getByRole('button', { name: 'בדוק' }).click()
   await expect(page.getByTestId('result-stars')).toHaveAttribute('aria-label', '3 מתוך 3 כוכבים')
 })
+
+test('M5: after a solve, "לחדר הבא" leads to the next room; the last room leads back to the stage', async ({ page }) => {
+  await page.goto('/#/room/sw-1-r1')
+  await expect(page.getByRole('link', { name: /לחדר הבא/ })).toHaveCount(0)
+  await page.getByTestId('number-input').fill('10110101')
+  await page.getByRole('button', { name: 'בדוק' }).click()
+  await page.getByRole('link', { name: /לחדר הבא/ }).click()
+  await expect(page).toHaveURL(/#\/room\/sw-1-r2$/)
+  await expect(page.getByRole('heading', { name: 'חזרה לעשרוני' })).toBeVisible()
+  await page.goto('/#/room/sw-1-r8')
+  await page.getByTestId('number-input').fill('0010001')
+  await page.getByRole('button', { name: 'בדוק' }).click()
+  await page.getByTestId('next-room').click()
+  await expect(page).toHaveURL(/#\/world\/switching\/stage\/sw-1-numbers$/)
+})
