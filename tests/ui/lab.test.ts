@@ -4,7 +4,7 @@ import type { LabPuzzle } from '../../src/content/types'
 import { stage3 } from '../../src/content/switching/stage3'
 import {
   alignTable, autoLayout, checkCircuit, findRoom, hasQueryFlag, initialCircuit, liveValues,
-  mergeResult, needsLayout, nextNodeId, refersToChip, restartRoom, usableDraft,
+  mergeResult, needsLayout, nextNodeId, refersToChip, restartRoom, storeChip, usableDraft,
 } from '../../src/ui/lab/labLogic'
 import { emptySave } from '../../src/game/progress'
 import { parseHash } from '../../src/ui/router'
@@ -96,6 +96,21 @@ describe('lab logic', () => {
     expect(Object.keys(r.drafts)).toEqual(['b'])
     expect(r.rooms).toEqual(d.rooms)
     expect(restartRoom(r, 'a')).toBe(r)
+  })
+
+  it('storeChip replaces a saved chip only with a strictly smaller circuit', () => {
+    const spec = { name: 'HA', inputs: ['A', 'B'], outputs: ['C', 'S'] }
+    const gates = (n: number): Circuit => ({ nodes: [...initialCircuit(ha.spec).nodes, ...Array.from({ length: n }, (_, i) => ({ id: `g${i}`, kind: 'NAND' as const, x: 0, y: 0 }))], wires: [] })
+    const first = storeChip(emptySave(), spec, gates(6))
+    expect(first.outcome).toBe('new')
+    expect(first.save.chips.HA.circuit.nodes).toHaveLength(10)
+    const worse = storeChip(first.save, spec, gates(9))
+    expect(worse.outcome).toBe('kept')
+    expect(worse.save).toBe(first.save)
+    expect(storeChip(first.save, spec, gates(6)).outcome).toBe('kept')
+    const better = storeChip(first.save, spec, gates(5))
+    expect(better.outcome).toBe('better')
+    expect(better.save.chips.HA.circuit.nodes).toHaveLength(9)
   })
 
   it('live values propagate through complete parts only', () => {

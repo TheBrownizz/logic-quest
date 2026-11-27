@@ -18,7 +18,7 @@ import { NumberPuzzle } from './NumberPuzzle'
 import { Hints, useHelped, useSolve } from './roomParts'
 import {
   alignTable, autoLayout, checkCircuit, errorText, findRoom, hasQueryFlag, initialCircuit,
-  needsLayout, refersToChip, restartRoom, usableDraft, type CheckResult, type CircuitPuzzle,
+  needsLayout, refersToChip, restartRoom, storeChip, usableDraft, type CheckResult, type ChipStore, type CircuitPuzzle,
   visibleRows,
 } from './labLogic'
 import './lab.css'
@@ -76,7 +76,7 @@ function NextRoom({ world, stage, room }: NonNullable<ReturnType<typeof findRoom
 }
 
 /** `result` is the merged, saved result (stars); `attempt` is this attempt alone (checklist). */
-type Verdict = { res: CheckResult; table?: TruthTable; result?: RoomResult; attempt?: RoomResult; unlocked?: string }
+type Verdict = { res: CheckResult; table?: TruthTable; result?: RoomResult; attempt?: RoomResult; unlocked?: { name: string; outcome: ChipStore } }
 
 function CircuitRoom({ room, puzzle, onRestart, autofill }: { room: Room; puzzle: CircuitPuzzle; onRestart: () => void; autofill: boolean }) {
   const [save, update] = useSave()
@@ -141,10 +141,11 @@ function CircuitRoom({ room, puzzle, onRestart, autofill }: { room: Room; puzzle
       // contains itself (only possible through an old draft).
       const unlock = puzzle.unlocksChip && !refersToChip(circuit, puzzle.unlocksChip.name, chips) ? puzzle.unlocksChip : undefined
       v.attempt = { solved: true, optimal: res.optimal, noHints: !helped }
+      let stored: ChipStore | undefined
       v.result = solve(v.attempt, unlock
-        ? d => ({ ...d, chips: { ...d.chips, [unlock.name]: { name: unlock.name, inputs: [...unlock.inputs], outputs: [...unlock.outputs], circuit } } })
+        ? d => { const r = storeChip(d, unlock, circuit); stored = r.outcome; return r.save }
         : undefined)
-      v.unlocked = unlock?.name
+      if (unlock && stored) v.unlocked = { name: unlock.name, outcome: stored }
     } else if (res.kind === 'mismatch') table = res.actual
     v.table = table
     setVerdict(null)
@@ -231,7 +232,9 @@ function VerdictView({ v, puzzle }: { v: Verdict; puzzle: CircuitPuzzle }) {
           <li className={v.attempt?.optimal ? 'ok' : 'muted'}>{v.attempt?.optimal ? '✓' : '○'} מספר שערים אופטימלי</li>
           <li className={v.attempt?.noHints ? 'ok' : 'muted'}>{v.attempt?.noHints ? '✓' : '○'} בלי רמזים</li>
         </ul>
-        {v.unlocked && <p className="unlock">רכיב חדש נפתח: {v.unlocked}</p>}
+        {v.unlocked?.outcome === 'new' && <p className="unlock">רכיב חדש נפתח: {v.unlocked.name}</p>}
+        {v.unlocked?.outcome === 'better' && <p className="unlock">הרכיב {v.unlocked.name} עודכן למעגל הקטן יותר</p>}
+        {v.unlocked?.outcome === 'kept' && <p className="muted">הרכיב {v.unlocked.name} השמור קטן יותר או שווה, ולכן נשאר</p>}
       </div>
     )
   }

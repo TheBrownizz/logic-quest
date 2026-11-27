@@ -169,6 +169,25 @@ export function restartRoom(d: SaveData, roomId: string): SaveData {
   return { ...d, helped, drafts }
 }
 
+export type ChipStore = 'new' | 'better' | 'kept'
+
+/**
+ * Saves the circuit of a solved unlock room as its chip. An existing chip is replaced only when the new
+ * circuit has strictly fewer gates, so a later, worse solve can't cost rooms that build on it their stars.
+ */
+export function storeChip(
+  d: SaveData, unlock: { name: string; inputs: string[]; outputs: string[] }, circuit: Circuit,
+): { save: SaveData; outcome: ChipStore } {
+  const old = d.chips[unlock.name]
+  if (old) {
+    try {
+      if (gateCount(circuit, d.chips) >= gateCount(old.circuit, d.chips, [unlock.name])) return { save: d, outcome: 'kept' }
+    } catch { /* an unreadable old chip is replaced */ }
+  }
+  const chip = { name: unlock.name, inputs: [...unlock.inputs], outputs: [...unlock.outputs], circuit }
+  return { save: { ...d, chips: { ...d.chips, [unlock.name]: chip } }, outcome: old ? 'better' : 'new' }
+}
+
 export function mergeResult(prev: RoomResult | undefined, cur: RoomResult): RoomResult {
   return {
     solved: !!prev?.solved || cur.solved,
