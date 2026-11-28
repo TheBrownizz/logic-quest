@@ -8,6 +8,9 @@ import type * as identityBench from '../../ui/lessons/widgets/identityBenchLogic
 import type * as truthToMap from '../../ui/lessons/widgets/truthToMapLogic'
 import type * as rippleTimeline from '../../ui/lessons/widgets/rippleTimelineLogic'
 import type * as muxToy from '../../ui/lessons/widgets/muxToyLogic'
+import type * as latchToy from '../../ui/lessons/widgets/latchToyLogic'
+import type * as clockScope from '../../ui/lessons/widgets/clockScopeLogic'
+import type * as stateWalker from '../../ui/lessons/widgets/stateWalkerLogic'
 
 /**
  * The config, state and goal types of every widget, as pinned in each `<name>Logic.ts`. The registry is typed
@@ -23,6 +26,9 @@ export interface WidgetTypes {
   TruthToMap: { config: truthToMap.TruthToMapConfig; state: truthToMap.TruthToMapState; goal: truthToMap.TruthToMapGoal }
   RippleTimeline: { config: rippleTimeline.RippleTimelineConfig; state: rippleTimeline.RippleTimelineState; goal: rippleTimeline.RippleTimelineGoal }
   MuxToy: { config: muxToy.MuxToyConfig; state: muxToy.MuxToyState; goal: muxToy.MuxToyGoal }
+  LatchToy: { config: latchToy.LatchToyConfig; state: latchToy.LatchToyState; goal: latchToy.LatchToyGoal }
+  ClockScope: { config: clockScope.ClockScopeConfig; state: clockScope.ClockScopeState; goal: clockScope.ClockScopeGoal }
+  StateWalker: { config: stateWalker.StateWalkerConfig; state: stateWalker.StateWalkerState; goal: stateWalker.StateWalkerGoal }
 }
 
 export type ConfigOf<K extends WidgetName> = WidgetTypes[K]['config']

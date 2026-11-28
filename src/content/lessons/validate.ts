@@ -4,6 +4,11 @@ import type { World } from '../types'
 import { validateRoom } from '../validate'
 import { registry } from '../../ui/lessons/widgets/registry'
 import { normalizeAnswer } from './answer'
+import { validateWaveConfig } from '../../logic/waveform'
+import { isMoore } from '../../logic/fsm'
+import { tableOf } from '../../ui/lab/seqLogic'
+import type { ClockScopeConfig } from '../../ui/lessons/widgets/clockScopeLogic'
+import type { StateWalkerConfig } from '../../ui/lessons/widgets/stateWalkerLogic'
 import { allFigures } from './catalog'
 import { WIDGET_NAMES, type Figures, type Lesson, type SkipQuestion, type Step, type WidgetName } from './types'
 
@@ -53,6 +58,7 @@ function validateStep(lesson: Lesson, step: Step, world: World, opts: Required<V
         if (/[֐-׿]/.test(str)) err(`${path} has Hebrew text; put sentences in the prompt (config holds short labels only)`)
         else if (str.length > CONFIG_LABEL_MAX) err(`${path} is ${str.length} characters (config labels are at most ${CONFIG_LABEL_MAX})`)
       }
+      for (const m of widgetConfigProblems(step.widget, step.config)) err(m)
       const def = opts.widgets[step.widget]
       let init: unknown
       try { init = def.initial(step.config as never) } catch (e) { err(`initial(config) threw: ${msg(e)}`); break }
@@ -101,6 +107,27 @@ function validateStep(lesson: Lesson, step: Step, world: World, opts: Required<V
     default:
       err(`unknown step kind "${(step as { kind: string }).kind}"`)
   }
+}
+
+/**
+ * Rules a widget's config must meet beyond its type: a ClockScope trace (and its `compare`) passes
+ * validateWaveConfig; a StateWalker machine builds, and a 'moore' walker has a Moore machine.
+ */
+export function widgetConfigProblems(widget: WidgetName, config: unknown): string[] {
+  const out: string[] = []
+  if (widget === 'ClockScope') {
+    const c = config as ClockScopeConfig
+    for (const m of validateWaveConfig(c.kind, c.clk, c.inputs, c.q0)) out.push(`ClockScope: ${m}`)
+    if (c.compare) for (const m of validateWaveConfig(c.compare, c.clk, c.inputs, c.q0)) out.push(`ClockScope compare ${c.compare}: ${m}`)
+  } else if (widget === 'StateWalker') {
+    const c = config as StateWalkerConfig
+    try {
+      const t = tableOf(c.table)
+      if (c.table.inputs.includes('S') && c.table.inputs.includes('R')) out.push('StateWalker: a machine driven by S and R would offer the forbidden S=R=1 input')
+      if (c.kind === 'moore' && !isMoore(t)) out.push('StateWalker: kind "moore" but the machine is Mealy')
+    } catch (e) { out.push(`StateWalker: machine: ${msg(e)}`) }
+  }
+  return out
 }
 
 /** Longest string a widget config may hold: config carries short labels (variable names, formulas) only. */

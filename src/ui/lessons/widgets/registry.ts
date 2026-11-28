@@ -19,6 +19,12 @@ import { RippleTimeline } from './RippleTimeline'
 import * as rippleTimeline from './rippleTimelineLogic'
 import { MuxToy } from './MuxToy'
 import * as muxToy from './muxToyLogic'
+import { LatchToy } from './LatchToy'
+import * as latchToy from './latchToyLogic'
+import { ClockScope } from './ClockScope'
+import * as clockScope from './clockScopeLogic'
+import { StateWalker } from './StateWalker'
+import * as stateWalker from './stateWalkerLogic'
 
 /** Each widget's definition, typed with its pinned config, state and goal (see content/lessons/widgetTypes.ts). */
 export type Registry = { [K in WidgetName]: WidgetDef<ConfigOf<K>, StateOf<K>, GoalOf<K>> }
@@ -37,4 +43,7 @@ export const registry: Registry = {
   TruthToMap: { Component: TruthToMap, initial: truthToMap.initial, isGoalMet: truthToMap.isGoalMet },
   RippleTimeline: { Component: RippleTimeline, initial: rippleTimeline.initial, isGoalMet: rippleTimeline.isGoalMet },
   MuxToy: { Component: MuxToy, initial: muxToy.initial, isGoalMet: muxToy.isGoalMet },
+  LatchToy: { Component: LatchToy, initial: latchToy.initial, isGoalMet: latchToy.isGoalMet },
+  ClockScope: { Component: ClockScope, initial: clockScope.initial, isGoalMet: clockScope.isGoalMet },
+  StateWalker: { Component: StateWalker, initial: stateWalker.initial, isGoalMet: stateWalker.isGoalMet },
 }

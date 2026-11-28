@@ -4,10 +4,12 @@ import type { Hint, LabPuzzle } from '../types'
 export type WidgetName =
   | 'BaseDial' | 'BaseConvert' | 'ComplementLab' | 'BitField' | 'GateToy'
   | 'IdentityBench' | 'TruthToMap' | 'RippleTimeline' | 'MuxToy'
+  | 'LatchToy' | 'ClockScope' | 'StateWalker'
 
 export const WIDGET_NAMES: readonly WidgetName[] = [
   'BaseDial', 'BaseConvert', 'ComplementLab', 'BitField', 'GateToy',
   'IdentityBench', 'TruthToMap', 'RippleTimeline', 'MuxToy',
+  'LatchToy', 'ClockScope', 'StateWalker',
 ]
 
 /**
