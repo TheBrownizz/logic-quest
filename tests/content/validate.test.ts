@@ -138,8 +138,8 @@ describe('validateWorld', () => {
 
 describe('Switching world', () => {
   it('is valid', () => expect(validateWorld(switchingWorld)).toEqual([]))
-  it('has five stages with the agreed ids', () => {
-    expect(switchingWorld.stages.map(s => s.id)).toEqual(['sw-1-numbers', 'sw-2-arith', 'sw-3-boolean', 'sw-4-minimize', 'sw-5-blocks'])
+  it('has eight stages with the agreed ids', () => {
+    expect(switchingWorld.stages.map(s => s.id)).toEqual(['sw-1-numbers', 'sw-2-arith', 'sw-3-boolean', 'sw-4-minimize', 'sw-5-blocks', 'sw-6-latches', 'sw-7-fsm', 'sw-8-design'])
     for (const s of switchingWorld.stages) { expect(s.rooms.length).toBeGreaterThanOrEqual(1); expect(s.cards.length).toBeGreaterThanOrEqual(1) }
   })
 })

@@ -5,10 +5,13 @@ import * as stage2 from './stage2'
 import * as stage3 from './stage3'
 import * as stage4 from './stage4'
 import * as stage5 from './stage5'
+import * as stage6 from './stage6'
+import * as stage7 from './stage7'
+import * as stage8 from './stage8'
 
-const files = [stage1, stage2, stage3, stage4, stage5]
+const files = [stage1, stage2, stage3, stage4, stage5, stage6, stage7, stage8]
 
-/** Every switching lesson, stage files 1–5 in order. */
+/** Every switching lesson, stage files 1–8 in order. */
 export const switchingLessons: Lesson[] = files.flatMap(f => f.lessons)
 
 /** The switching lessons of each stage, sorted by `order`. */

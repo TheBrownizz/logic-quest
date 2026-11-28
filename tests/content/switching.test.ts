@@ -9,7 +9,9 @@ import { minimizeSOP } from '../../src/logic/qm'
 import { lintText, looseFormula, looseGroups, looseMinus } from '../../src/content/lint'
 
 type P<T extends LabPuzzle['type']> = Extract<LabPuzzle, { type: T }>
-const stages = [...switchingWorld.stages].sort((a, b) => a.order - b.order)
+const allStages = [...switchingWorld.stages].sort((a, b) => a.order - b.order)
+/** Stages 1–5 (complete). Stages 6–8 are checked by their own tests through expectStageValid (stageTestUtils.ts). */
+const stages = allStages.filter(s => s.order <= 5)
 const stage = (id: string) => stages.find(s => s.id === id)!
 const claims = (s: Stage) => s.cards.filter((c): c is Extract<Card, { kind: 'claim' }> => c.kind === 'claim')
 const mcqs = (s: Stage) => s.cards.filter(c => c.kind === 'mcq')
