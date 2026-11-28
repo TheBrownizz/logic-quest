@@ -60,7 +60,7 @@ describe('LocalProgressStore', () => {
     expect(s.importJSON('{"version":1,"rooms":5}').ok).toBe(false)
   })
   it('SaveData has no run field', () => {
-    expect(Object.keys(emptySave()).sort()).toEqual(['bestRun', 'chips', 'drafts', 'flagged', 'helped', 'knowledge', 'lessons', 'openStages', 'rooms', 'version'])
+    expect(Object.keys(emptySave()).sort()).toEqual(['bestRun', 'chips', 'drafts', 'flagged', 'helped', 'knowledge', 'lessons', 'openStages', 'rooms', 'savedAt', 'version'])
   })
   it('drops bad chips/drafts entries, keeps good ones', () => {
     const c = { nodes: [], wires: [] }

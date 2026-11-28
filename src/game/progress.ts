@@ -24,6 +24,8 @@ export interface SaveData {
    * lessons are added to the stage later. Optional in stored saves; loaded as [].
    */
   openStages: string[]
+  /** When this save was last written (ms since epoch); 0 if unknown. Set by `LocalProgressStore.save`. Used to pick the newer side when merging. */
+  savedAt?: number
 }
 export interface ProgressStore {
   load(): SaveData
@@ -40,7 +42,7 @@ export const SAVE_KEY = 'logic-quest-save'
 export const BACKUP_KEY = 'logic-quest-save-backup'
 
 export function emptySave(): SaveData {
-  return { version: 1, rooms: {}, chips: {}, drafts: {}, knowledge: [], bestRun: {}, flagged: [], helped: {}, lessons: {}, openStages: [] }
+  return { version: 1, rooms: {}, chips: {}, drafts: {}, knowledge: [], bestRun: {}, flagged: [], helped: {}, lessons: {}, openStages: [], savedAt: 0 }
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -83,13 +85,23 @@ function normalize(v: unknown): SaveData | null {
   const lessons = isObj(v.lessons) ? filterEntries(v.lessons, validLesson) : {}
   const openStages = Array.isArray(v.openStages) ? [...new Set(v.openStages.filter((x): x is string => typeof x === 'string'))] : []
   if (!isObj(bestRun) || !Object.values(bestRun).every(n => typeof n === 'number')) return null
-  return { version: 1, rooms: rooms as SaveData['rooms'], chips: filterEntries(chips, validChipEntry), drafts: filterEntries(drafts, validCircuit), knowledge, bestRun: bestRun as SaveData['bestRun'], flagged, helped, lessons, openStages }
+  const savedAt = typeof v.savedAt === 'number' && Number.isFinite(v.savedAt) ? v.savedAt : 0
+  return { version: 1, savedAt, rooms: rooms as SaveData['rooms'], chips: filterEntries(chips, validChipEntry), drafts: filterEntries(drafts, validCircuit), knowledge, bestRun: bestRun as SaveData['bestRun'], flagged, helped, lessons, openStages }
 }
+
+export interface LocalStoreOptions { key?: string; storage?: Storage }
 
 export class LocalProgressStore implements ProgressStore {
   /** The raw value this store last read or successfully wrote; a different stored value came from elsewhere. */
   private lastRaw: string | null | undefined
-  constructor(private storage?: Storage) {}
+  private storage?: Storage
+  private key: string
+  /** `new LocalProgressStore()` is today's guest store. A per-owner store passes its own `key`; its backup lives under `<key>-backup`. */
+  constructor(opts: LocalStoreOptions | Storage = {}) {
+    const o: LocalStoreOptions = typeof (opts as Storage).getItem === 'function' ? { storage: opts as Storage } : opts as LocalStoreOptions
+    this.storage = o.storage
+    this.key = o.key ?? SAVE_KEY
+  }
 
   private store(): Storage | undefined {
     if (this.storage) return this.storage
@@ -99,7 +111,7 @@ export class LocalProgressStore implements ProgressStore {
   load(): SaveData {
     let raw: string | null | undefined
     try {
-      raw = this.store()?.getItem(SAVE_KEY)
+      raw = this.store()?.getItem(this.key)
       this.lastRaw = raw
       if (!raw) return emptySave()
       const d = normalize(JSON.parse(raw))
@@ -110,16 +122,18 @@ export class LocalProgressStore implements ProgressStore {
   }
 
   /** Keeps the unreadable raw save once, so a later save() can't destroy the user's data. */
+  private get backupKey(): string { return this.key === SAVE_KEY ? BACKUP_KEY : `${this.key}-backup` }
+
   private backup(raw: string): void {
     try {
       const st = this.store()
-      if (st && !st.getItem(BACKUP_KEY)) st.setItem(BACKUP_KEY, raw)
+      if (st && !st.getItem(this.backupKey)) st.setItem(this.backupKey, raw)
     } catch { /* ignore */ }
   }
 
   latest(fallback: SaveData): SaveData {
     let raw: string | null | undefined
-    try { raw = this.store()?.getItem(SAVE_KEY) } catch { return fallback }
+    try { raw = this.store()?.getItem(this.key) } catch { return fallback }
     if (!raw || raw === this.lastRaw) return fallback
     let d: SaveData | null = null
     try { d = normalize(JSON.parse(raw)) } catch { /* unreadable */ }
@@ -129,11 +143,11 @@ export class LocalProgressStore implements ProgressStore {
   }
 
   save(d: SaveData): void {
-    const raw = JSON.stringify(d)
+    const raw = JSON.stringify({ ...d, savedAt: Date.now() })
     try {
       const st = this.store()
       if (!st) return
-      st.setItem(SAVE_KEY, raw)
+      st.setItem(this.key, raw)
       this.lastRaw = raw
     } catch { /* quota or blocked storage: ignore */ }
   }
