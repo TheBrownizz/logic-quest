@@ -45,6 +45,26 @@ const FF_W = 36
 const FF_H = 48
 
 const r1 = (v: number) => Math.round(v * 100) / 100
+/** Every point an absolute path (M, L, Q, H, V, A, Z, as written here) passes through or bends at. */
+export function pathPoints(d: string): Pt[] {
+  const tokens = d.match(/[MLQHVAZ]|-?\d*\.?\d+/g) ?? []
+  const out: Pt[] = []
+  let cmd = ''
+  let args: number[] = []
+  let cur: Pt = { x: 0, y: 0 }
+  const flush = () => {
+    if (cmd === 'H') { for (const x of args) { cur = { x, y: cur.y }; out.push(cur) } }
+    else if (cmd === 'V') { for (const y of args) { cur = { x: cur.x, y }; out.push(cur) } }
+    else if (cmd === 'A') { if (args.length >= 7) { cur = { x: args[5], y: args[6] }; out.push(cur) } }
+    else if (cmd && cmd !== 'Z') for (let i = 0; i + 1 < args.length; i += 2) { cur = { x: args[i], y: args[i + 1] }; out.push(cur) }
+  }
+  for (const t of tokens) {
+    if (/^[A-Z]$/.test(t)) { flush(); cmd = t; args = [] } else args.push(Number(t))
+  }
+  flush()
+  return out
+}
+
 /** Moves an SVG path made of absolute M, L, Q, H, V, A and Z commands by (dx, dy); points stay "x,y" pairs. */
 export function shift(d: string, dx: number, dy: number): string {
   const tokens = d.match(/[MLQHVAZ]|-?\d*\.?\d+/g) ?? []
@@ -269,7 +289,7 @@ export function layoutSchematic(n: Netlist): SchLayout {
       const w = p.text.length * 8
       const x0 = p.anchor === 'end' ? p.x - w : p.anchor === 'middle' ? p.x - w / 2 : p.x
       add(x0, p.y - 8); add(x0 + w, p.y + 8)
-    } else for (const m of p.d.matchAll(/(-?[\d.]+),(-?[\d.]+)/g)) add(Number(m[1]), Number(m[2]))
+    } else for (const q of pathPoints(p.d)) add(q.x, q.y)
   }
   if (!Number.isFinite(bx0)) { bx0 = 0; by0 = 0; bx1 = 0; by1 = 0 }
   const pad = 12

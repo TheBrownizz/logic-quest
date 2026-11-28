@@ -12,7 +12,8 @@
   transition: border-color .15s, box-shadow .15s, transform .15s;
 }
 .boss-mode b { font-size: 1.2rem; }
-.boss-mode .mono { color: var(--amber); }
+.boss-mode { align-content: start; }
+.boss-min { color: var(--amber); }
 .boss-mode:hover, .boss-mode:focus-visible { border-color: var(--amber); box-shadow: 0 0 20px var(--amber-glow); transform: translateY(-2px); }
 .boss-note { font-size: .9rem; }
 .boss-attempts { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; max-width: 420px; }

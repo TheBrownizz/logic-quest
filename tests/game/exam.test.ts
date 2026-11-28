@@ -112,3 +112,13 @@ describe('boss lock and saved attempts', () => {
     expect(store.load().exams).toEqual({ attempts: [] })
   })
 })
+
+describe('exam clock', () => {
+  it('shows minutes:seconds, minutes past 59, never negative', async () => {
+    const { clock } = await import('../../src/ui/exam/examText')
+    expect(clock(150 * 60_000)).toBe('150:00')
+    expect(clock(60 * 60_000)).toBe('60:00')
+    expect(clock(61_500)).toBe('01:02')
+    expect(clock(-5)).toBe('00:00')
+  })
+})

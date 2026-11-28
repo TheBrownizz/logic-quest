@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { layoutSchematic, type Prim, type Pt } from '../../src/ui/schematic/geometry'
+import { layoutSchematic, pathPoints, type Prim, type Pt } from '../../src/ui/schematic/geometry'
 import type { Netlist } from '../../src/ui/schematic/netlist'
 
 const wires = (l: ReturnType<typeof layoutSchematic>) => l.prims.filter((p): p is Extract<Prim, { t: 'wire' }> => p.t === 'wire')
@@ -8,7 +8,7 @@ const same = (a: Pt, b: Pt) => Math.abs(a.x - b.x) < 1e-9 && Math.abs(a.y - b.y)
 const orthogonal = (pts: Pt[]) => pts.every((p, i) => i === 0 || p.x === pts[i - 1].x || p.y === pts[i - 1].y)
 const allPoints = (l: ReturnType<typeof layoutSchematic>): Pt[] => l.prims.flatMap(p =>
   p.t === 'wire' ? p.points : p.t === 'circle' ? [{ x: p.cx - p.r, y: p.cy - p.r }, { x: p.cx + p.r, y: p.cy + p.r }]
-    : p.t === 'text' ? [{ x: p.x, y: p.y }] : (p.d.match(/-?\d+(\.\d+)?,-?\d+(\.\d+)?/g) ?? []).map(s => { const [x, y] = s.split(',').map(Number); return { x, y } }))
+    : p.t === 'text' ? [{ x: p.x, y: p.y }] : pathPoints(p.d))
 
 /** The moed-B style gated D latch: A (data), B (enable), NOT, two NANDs into a NAND latch. */
 const dLatch: Netlist = {
@@ -99,6 +99,11 @@ describe('layoutSchematic', () => {
       expect(p.y).toBeLessThanOrEqual(y + h)
     }
     expect(l.prims.some(p => p.t === 'path' && p.cls === 'frame')).toBe(true)
+  })
+
+  it('pathPoints follows H and V runs (a frame\'s corners are in the box)', () => {
+    expect(pathPoints('M0,0 H10 V5 H0 Z')).toEqual([{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 5 }, { x: 0, y: 5 }])
+    expect(pathPoints('M4,-22 A22 22 0 0 1 4,22')).toEqual([{ x: 4, y: -22 }, { x: 4, y: 22 }])
   })
 
   it('unknown parts and pins throw a readable error', () => {

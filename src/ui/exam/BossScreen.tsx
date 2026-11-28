@@ -41,12 +41,12 @@ export function BossScreen() {
           <div className="boss-modes">
             <a className="boss-mode" href={hrefs.exam('full')} data-testid="start-full">
               <b>מבחן מלא</b>
-              <span className="mono">{EXAM_MINUTES.full} דקות</span>
+              <span className="boss-min"><span className="mono">{EXAM_MINUTES.full}</span> דקות</span>
               <span className="muted">ארבע שאלות, נושאים 1–4</span>
             </a>
             <a className="boss-mode" href={hrefs.exam('short')} data-testid="start-short">
               <b>מבחן מקוצר</b>
-              <span className="mono">{EXAM_MINUTES.short} דקות</span>
+              <span className="boss-min"><span className="mono">{EXAM_MINUTES.short}</span> דקות</span>
               <span className="muted">שתי שאלות: מערכות עקיבה ועוד נושא אחד. הציון מנורמל ל-100.</span>
             </a>
           </div>
