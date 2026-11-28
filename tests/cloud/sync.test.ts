@@ -574,6 +574,24 @@ describe('review hardening', () => {
     a.engine.stop()
   })
 
+  it('a save too big for the server shows the warning and is not retried forever', async () => {
+    const fake = new FakeSupabase()
+    const a = device(fake)
+    a.engine.start(); await vi.advanceTimersByTimeAsync(100)
+    const u = fake.calls.update
+    a.change(d => ({ ...d, knowledge: ['x'.repeat(950_000)] }))
+    await vi.advanceTimersByTimeAsync(2500)
+    expect(a.engine.status).toBe('offline')
+    await vi.advanceTimersByTimeAsync(300_000)
+    expect(fake.calls.update).toBe(u) // never sent, never retried
+    expect(vi.getTimerCount()).toBe(0)
+    a.change(d => ({ ...d, knowledge: ['small'] })) // a later, smaller save goes through
+    await vi.advanceTimersByTimeAsync(2500)
+    expect(a.engine.status).toBe('synced')
+    expect((fake.rows.get(U)!.data as SaveData).knowledge).toEqual(['small'])
+    a.engine.stop()
+  })
+
   it('A3: hiding the tab flushes a pending push at once', async () => {
     const fake = new FakeSupabase()
     const d = fakeDoc()

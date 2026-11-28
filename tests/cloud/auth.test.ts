@@ -112,6 +112,9 @@ describe('sessionKeys and hasStoredSession (exact keys from the project URL)', (
     expect(hasStoredSession(mem({ 'sb-abcdef-auth-token': '{}' }), KEYS)).toBe(true)
     expect(hasStoredSession(mem({ 'sb-someone-else-auth-token': '{}', 'logic-quest-save': 'x' }), KEYS)).toBe(false)
   })
+  it('a leftover code verifier alone is not a session', () => {
+    expect(hasStoredSession(mem({ 'sb-abcdef-auth-token-code-verifier': 'v' }), KEYS)).toBe(false)
+  })
   it('signOut removes exactly this project\'s keys, leaves other apps on the same origin alone, and pings other tabs', async () => {
     const st = mem({ ...Object.fromEntries(KEYS.map(k => [k, 'x'])), 'sb-otherapp-auth-token': 'keep', 'logic-quest-save': 'g' })
     await signOut({ auth: { signOut: async () => ({ error: { message: 'net' } }) } } as unknown as SupabaseLike, st, KEYS)

@@ -6,3 +6,4 @@ playwright-report
 .worktrees
 *.tsbuildinfo
 dist-e2e-fake
+supabase/.temp

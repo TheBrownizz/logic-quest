@@ -22,6 +22,14 @@ describe('delete-account handler', () => {
     expect((await handle(req('POST'), d)).status).toBe(401)
     expect(d.deleteUser).not.toHaveBeenCalled()
   })
+  it('the 401 and 405 paths carry the CORS headers too, so the browser can read them', async () => {
+    const d = deps()
+    for (const r of [await handle(req('POST', { Origin: 'http://localhost:5173' }), d), await handle(req('POST', { Authorization: 'Bearer bad', Origin: 'http://localhost:5173' }), d), await handle(req('GET', { Origin: 'http://localhost:5173' }), d)]) {
+      expect(r.headers.get('Access-Control-Allow-Origin')).toBe('http://localhost:5173')
+      expect(r.headers.get('Access-Control-Allow-Headers')).toContain('authorization')
+      expect(r.headers.get('Vary')).toBe('Origin')
+    }
+  })
   it('401 for an invalid token or a failing verification', async () => {
     const d = deps()
     expect((await handle(req('POST', { Authorization: 'Bearer bad' }), d)).status).toBe(401)

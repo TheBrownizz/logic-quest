@@ -65,9 +65,12 @@ export function sessionKeys(
   return [...base, ...extra]
 }
 
-/** True when this project's Supabase session is stored in this browser (so loading the library is worth it). */
+/**
+ * True when this project's Supabase session is stored in this browser (so loading the library is worth it).
+ * Only the auth token counts: a leftover PKCE code verifier alone is not a session.
+ */
 export function hasStoredSession(storage: { getItem(k: string): string | null } = localStorage, keys: string[] = sessionKeys()): boolean {
-  return tryDo(() => keys.some(k => storage.getItem(k) !== null)) ?? false
+  return tryDo(() => keys.filter(k => !k.endsWith('-code-verifier')).some(k => storage.getItem(k) !== null)) ?? false
 }
 
 export async function exchangeCode(client: SupabaseLike, code: string): Promise<string | null> {

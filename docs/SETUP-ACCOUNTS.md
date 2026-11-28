@@ -8,7 +8,7 @@
 
 **שני דברים שמעתיקים לאורך הדרך:**
 - **Project URL**, נראה כך: `https://abcdefgh.supabase.co`. החלק `abcdefgh` נקרא כאן `<ref>`.
-- **anon key**, מפתח ארוך שמתחיל ב־`eyJ`. הוא ציבורי, מותר שיופיע באתר.
+- **anon key** (המפתח הציבורי), מפתח ארוך שמתחיל ב־`eyJ`. הוא ציבורי, מותר שיופיע באתר.
 
 > **אסור לשים בשום מקום** את ה־`service_role` key של Supabase. הוא מפתח סודי. הוא נשאר רק בתוך Supabase, והפונקציה שמוחקת חשבון קוראת אותו משם.
 
@@ -24,22 +24,22 @@
    - **Region**: בוחרים אזור קרוב לישראל, למשל **Europe (Frankfurt)** או **Europe (London)**.
 4. לוחצים **Create new project** וממתינים כדקה וחצי עד שהפרויקט מוכן.
 5. מעתיקים את שני הערכים:
-   - בתפריט הצד: **Project Settings** (גלגל שיניים) ← **API Keys** (או **Data API**). שם מופיע **Project URL**.
-   - באותו מקום מופיע **anon public** key (גם נקרא **Publishable key**). מעתיקים את שניהם לקובץ זמני.
+   - **Project URL**: בתפריט הצד **Project Settings** (גלגל שיניים) ← **Data API**, שם מופיע ה־URL. אפשר גם ללחוץ על הכפתור **Connect** בראש הפרויקט.
+   - **anon key**: **Project Settings** ← **API Keys** ← הלשונית **Legacy API Keys** ← השורה **anon** **public** (מתחילה ב־`eyJ`) ← **Copy**. משתמשים במפתח הזה בלבד, ולא במפתח שמתחיל ב־`sb_publishable_`. **לעולם לא** ב־**service_role**. מעתיקים את שני הערכים לקובץ זמני.
 
 ## שלב 2: יוצרים את הטבלה (schema.sql)
 
 1. בתפריט הצד של Supabase: **SQL Editor**.
 2. לוחצים **New query**.
 3. פותחים בעורך הקוד שלך את הקובץ `supabase/schema.sql` מהריפו, מעתיקים את כל התוכן, ומדביקים בחלון.
-4. לוחצים **Run** (או `Ctrl+Enter`). אמורה להופיע ההודעה **Success. No rows returned**.
+4. לוחצים **Run** (או `Ctrl+Enter`). ב־SQL Editor תופיע שאלת אישור, כי בקובץ יש פקודות `drop` (הן מוחקות רק policy או trigger ישנים של הטבלה הזו). זה צפוי: לוחצים **Run this query**. אמורה להופיע ההודעה **Success. No rows returned**.
 5. בדיקה: בתפריט הצד **Table Editor**. צריכה להופיע טבלה בשם `saves`.
 
 הרצה חוזרת של הקובץ בטוחה, והיא לא מוחקת נתונים.
 
 ## שלב 3: Google Cloud, יוצרים "כניסה עם Google"
 
-כאן אתה אומר ל־Google שהאתר שלך רשאי לבקש מהמשתמשים להתחבר.
+כאן אומרים ל־Google שהאתר רשאי לבקש מהמשתמשים להתחבר.
 
 1. נכנסים ל־https://console.cloud.google.com עם חשבון Google.
 2. למעלה, ליד הלוגו, לוחצים על בורר הפרויקטים ← **New Project**. **Project name**: `logic-quest` ← **Create**. מוודאים שהפרויקט החדש נבחר.
@@ -49,7 +49,7 @@
    - **App name**: `Logic Quest`. **User support email**: האימייל שלך.
    - **Audience** / **User type**: בוחרים **External**.
    - **Contact information**: האימייל שלך. מסמנים הסכמה ל־User Data Policy ו־**Create**.
-   - **Test users** (בלשונית **Audience**): לוחצים **Add users** ומוסיפים את כתובת ה־Gmail שלך ואת כל מי שיבדוק איתך. **כל עוד האפליקציה במצב Testing, רק משתמשים ברשימה הזו יוכלו להתחבר.**
+   - **Test users** (בלשונית **Audience**): לוחצים **Add users** ומוסיפים את כתובת ה־Gmail שלך ואת כל מי שיבדוק איתך. כל עוד האפליקציה במצב **Testing**, רק משתמשים ברשימה הזו יכולים להתחבר. בשלב 3.6 מפרסמים את האפליקציה, ואז כל אחד יכול.
 4. **יוצרים OAuth client ID.** **APIs & Services** ← **Credentials** ← **Create credentials** ← **OAuth client ID**.
    (בממשק החדש: **Google Auth Platform** ← **Clients** ← **Create client**.)
    - **Application type**: **Web application**. **Name**: `Logic Quest web`.
@@ -60,6 +60,7 @@
      - `https://<ref>.supabase.co/auth/v1/callback`  (מחליפים את `<ref>` ב־ref מהשלב הראשון)
    - **Create**.
 5. נפתח חלון עם **Client ID** ו־**Client secret**. מעתיקים את שניהם לקובץ זמני. ה־secret סודי: לא בריפו ולא בצ'אט.
+6. **יוצאים ממצב Testing.** **Google Auth Platform** ← **Audience** ← **Publish app** ← **Confirm**. ההרשאות היחידות שהאתר מבקש הן `openid`, `email` ו־`profile` (זיהוי, אימייל ושם), ולכן Google לא דורשת אימות (verification) ואין שום בדיקה נוספת. בלי השלב הזה רק Test users יכולים להתחבר.
 
 ## שלב 4: מחברים את Google ל־Supabase
 
@@ -90,12 +91,12 @@
 ```
 npx supabase login
 npx supabase link --project-ref <ref>
-npx supabase functions deploy delete-account
+npx supabase functions deploy delete-account --use-api
 ```
 
-- `login` פותח דפדפן לאישור.
+- `login` פותח דפדפן לאישור. תמיד מפעילים את הפריסה עם `--use-api`.
 - `link` יבקש את ה־Database Password מהשלב הראשון.
-- ב־`deploy`, אם מוצגת שאלה על Docker, אפשר לענות לא, או להוסיף `--use-api` לפקודה.
+- אם מופיעה השאלה `Ok to proceed? (y/N)`, מקלידים `y` ו־Enter. בסוף מופיעה הודעה שהפונקציה נפרסה (`Deployed Functions ... delete-account`), ואפשר לוודא ב־**Edge Functions** בדשבורד שהיא ברשימה.
 - אין צורך להגדיר מפתחות: Supabase נותן לפונקציה בעצמו את `SUPABASE_URL`, `SUPABASE_ANON_KEY` ואת `SUPABASE_SERVICE_ROLE_KEY`.
 
 ### דרך ב: דרך האתר של Supabase (בלי טרמינל)
@@ -103,7 +104,7 @@ npx supabase functions deploy delete-account
 1. **Edge Functions** ← **Deploy a new function** ← **Via Editor**.
 2. **Function name**: `delete-account` (בדיוק כך).
 3. מדביקים את התוכן של `supabase/functions/delete-account/index.ts`.
-4. הקובץ מייבא את `./handler.ts`. אם העורך מאפשר להוסיף קובץ, מוסיפים קובץ בשם `handler.ts` ומדביקים בו את התוכן של `supabase/functions/delete-account/handler.ts`. אם לא, השתמש בדרך א.
+4. הקובץ מייבא את `./handler.ts`. אם העורך מאפשר להוסיף קובץ, מוסיפים קובץ בשם `handler.ts` ומדביקים בו את התוכן של `supabase/functions/delete-account/handler.ts`. אם לא, משתמשים בדרך א.
 5. **Deploy**.
 
 ## שלב 7: מעבירים לאתר את שני הערכים (GitHub)
@@ -112,7 +113,7 @@ npx supabase functions deploy delete-account
 2. בלשונית **Variables** (לא Secrets!) לוחצים **New repository variable**, ויוצרים שניים:
    - **Name**: `VITE_SUPABASE_URL`, **Value**: ה־Project URL.
    - **Name**: `VITE_SUPABASE_ANON_KEY`, **Value**: ה־anon key.
-3. ודא ש־**Settings** ← **Pages** ← **Source** מוגדר ל־**GitHub Actions**.
+3. מוודאים ש־**Settings** ← **Pages** ← **Source** מוגדר ל־**GitHub Actions**.
 
 ## שלב 8: מפרסמים ובודקים
 
@@ -142,14 +143,14 @@ VITE_SUPABASE_ANON_KEY=<anon key>
 |---|---|---|
 | `Error 400: redirect_uri_mismatch` ב־Google | הכתובת ב־**Authorized redirect URIs** לא זהה לכתובת של Supabase | ב־Google Cloud ← **Credentials** ← ה־client ← בודקים שיש בדיוק `https://<ref>.supabase.co/auth/v1/callback`. אין רווח, אין לוכסן בסוף, וה־`<ref>` נכון. השינוי יכול לקחת כמה דקות |
 | `Unsupported provider: provider is not enabled` | Google לא הופעל ב־Supabase | שלב 4: **Authentication** ← **Sign In / Providers** ← **Google** ← **Enable**, ולשמור |
-| `Error 403: access_denied` / "האפליקציה לא עברה אימות" | האפליקציה במצב Testing והמשתמש לא ברשימה | שלב 3: מוסיפים אותו ב־**Test users** |
+| `Error 403: access_denied` / "האפליקציה לא עברה אימות" | האפליקציה עדיין במצב Testing, והמשתמש לא ברשימת ה־Test users | משלימים את שלב 3.6 (**Publish app**), או מוסיפים את המשתמש ב־**Test users** |
 | חוזרים לאתר אבל נשארים אורחים | ה־redirect לא ברשימה, או ה־Site URL שגוי | שלב 5, ולבדוק שהכתובות זהות לתו |
-| הכפתור "התחברות עם Google" לא מופיע | האתר נבנה בלי המשתנים | שלב 7. לוודא שהם ב־**Variables** ולא ב־**Secrets**, ואז להריץ שוב את ה־Deploy |
+| הכפתור "התחברות עם Google" לא מופיע | האתר נבנה בלי המשתנים | שלב 7. מוודאים שהם ב־**Variables** ולא ב־**Secrets**, ואז מריצים שוב את ה־Deploy |
 | הכפתור לא מופיע בפיתוח מקומי | חסר `.env.local` | ראו "בדיקה על המחשב שלך", והפעלה מחדש של `npm run dev` |
 | `401` במחיקת חשבון | הפונקציה לא פרוסה, או שהמשתמש לא מחובר | שלב 6. בודקים ב־**Edge Functions** שיש `delete-account`, ומתחברים מחדש לפני המחיקה |
 | `404` או "Failed to send a request to the Edge Function" | שם הפונקציה שגוי, או שהיא לא נפרסה | השם חייב להיות בדיוק `delete-account`. פורסים שוב |
 | אחרי המחיקה מופיעה "המחיקה נכשלה" | הפונקציה נכשלה בצד השרת | **Edge Functions** ← `delete-account` ← **Logs** |
-| ✓ לא מופיע ויש ⚠ | אין חיבור, או שגיאה בשרת | ננסה שוב אוטומטית. אם זה נמשך, בודקים שהרצת את `schema.sql` (שלב 2) |
+| ✓ לא מופיע ויש ⚠ | אין חיבור, שגיאה בשרת, או שההתקדמות גדולה מדי לשמירה בענן | האתר ינסה שוב אוטומטית. אם זה נמשך, בודקים שהרצת את `schema.sql` (שלב 2) |
 | אחרי חצי שנה: "Project paused" | פרויקטים חינמיים שלא בשימוש מושהים | נכנסים ל־Supabase ולוחצים **Restore project** |
 
-אם נתקעת, שלח ל־Claude את ההודעה המדויקת שאתה רואה (ללא מפתחות!), ואת מספר השלב.
+אם נתקעים, שולחים ל־Claude את ההודעה המדויקת שמופיעה (בלי מפתחות!) ואת מספר השלב.

@@ -8,6 +8,14 @@ create table if not exists public.saves (
   updated_at timestamptz not null default now()
 );
 
+-- A save is a few KB. Refuse anything absurd (the game also stops pushing above 900 KB and shows the warning sign).
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'saves_data_size' and conrelid = 'public.saves'::regclass) then
+    alter table public.saves add constraint saves_data_size check (pg_column_size(data) < 1000000);
+  end if;
+end $$;
+
 -- Row level security: a signed-in user can reach only their own row.
 alter table public.saves enable row level security;
 

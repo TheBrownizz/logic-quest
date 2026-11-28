@@ -7,6 +7,9 @@ export type SyncStatus = 'synced' | 'saving' | 'offline'
 export const PUSH_DEBOUNCE_MS = 2000
 export const BACKOFF_MS = [5000, 15000, 60000]
 const MAX_CAS_RETRIES = 3
+/** The server refuses a save of 1,000,000 bytes or more (see supabase/schema.sql); stay clearly below it. */
+export const MAX_SAVE_BYTES = 900_000
+const tooBig = (d: SaveData): boolean => new TextEncoder().encode(JSON.stringify(d)).length > MAX_SAVE_BYTES
 
 /** JSON with sorted keys: Postgres jsonb reorders keys, so "did anything change?" must not depend on order. */
 function canonical(v: unknown): string {
@@ -49,6 +52,8 @@ export class SyncEngine {
   /** Bumped by overwrite(): a pull that started before it must not apply its (now stale) result. */
   private epoch = 0
   private pulledOnce = false
+  /** Offline because the save is too big, with no retry timer: the next change schedules a push again. */
+  private tooBigNow = false
   private readyCbs = new Set<() => void>()
   private forced: SaveData | null = null
 
@@ -84,7 +89,8 @@ export class SyncEngine {
     if (this.stopped) return
     this.current = d
     this.dirty = true
-    if (this.status === 'offline') return // waits for the backoff retry
+    if (this.status === 'offline' && !this.tooBigNow) return // waits for the backoff retry
+    this.tooBigNow = false
     this.setStatus('saving')
     this.schedulePush()
   }
@@ -157,7 +163,18 @@ export class SyncEngine {
     this.retryTimer = setTimeout(() => { void this.sync() }, wait)
   }
 
+  /** The save is too big for the server: show the warning and stop; a later (smaller) change tries again. No retry loop. */
+  private blockTooBig(): void {
+    if (this.stopped) return
+    clearTimeout(this.pushTimer); clearTimeout(this.retryTimer)
+    this.pushTimer = this.retryTimer = undefined
+    this.dirty = true
+    this.tooBigNow = true
+    this.setStatus('offline')
+  }
+
   private markSynced(): void {
+    this.tooBigNow = false
     this.setStatus('synced')
     this.backoff = 0
     clearTimeout(this.retryTimer)
@@ -231,6 +248,7 @@ export class SyncEngine {
       // The reset must outrank whatever generation the server has now, or other devices would ignore it.
       const gen = Math.max(d.resetGen ?? 0, (parseSave(row.data)?.resetGen ?? 0) + 1)
       const out: SaveData = { ...d, resetGen: gen }
+      if (tooBig(out)) { this.blockTooBig(); return }
       const { data: rows, error: e2 } = await this.client.from('saves').update({ data: out, rev: row.rev + 1 }).eq('user_id', this.userId).eq('rev', row.rev).select('rev')
       if (this.stopped) return
       if (e2) { this.fail(); return }
@@ -259,8 +277,9 @@ export class SyncEngine {
     this.setStatus('saving')
     const epoch = this.epoch
     for (let attempt = 0; attempt <= MAX_CAS_RETRIES; attempt++) {
-      this.dirty = false
       const data = this.localSave()
+      if (tooBig(data)) { this.blockTooBig(); return }
+      this.dirty = false
       const { data: rows, error } = await this.client.from('saves').update({ data, rev: this.known + 1 }).eq('user_id', this.userId).eq('rev', this.known).select('rev')
       if (this.stopped || epoch !== this.epoch || this.forced) return // a reset took over: it re-reads the rev itself
       if (error) { this.dirty = true; this.fail(); return }
