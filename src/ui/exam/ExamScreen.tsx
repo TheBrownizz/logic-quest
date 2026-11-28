@@ -136,7 +136,7 @@ function QuestionView({ world, q, n, order, ans, set }: { world: World; q: ExamQ
     onRestart: () => setAttempt(a => a + 1),
   }), [set])
   return (
-    <article className="exam-q">
+    <article className="exam-q" data-qid={q.id}>
       <h2 className="exam-q-title">שאלה {n} <span className="muted">· {TOPIC_NAMES[q.topic]}</span></h2>
       <section className="exam-part" aria-labelledby={`${q.id}-a`}>
         <h3 id={`${q.id}-a`}>א׳ <small className="muted">(10%)</small> {ans.a && <span className="ok" data-testid="part-a-done">✓ נפתר</span>}</h3>
@@ -151,7 +151,7 @@ function QuestionView({ world, q, n, order, ans, set }: { world: World; q: ExamQ
         <fieldset className="choice exam-verdict" data-testid="exam-verdict">
           <legend>1. האם הטענה נכונה? <small className="muted">(5%)</small></legend>
           {[true, false].map(v => (
-            <label key={String(v)} className={`choice-opt${ans.verdict === v ? ' on' : ''}`}>
+            <label key={String(v)} className={`choice-opt${ans.verdict === v ? ' on' : ''}`} data-testid={`verdict-${v}`}>
               <input type="radio" name={`${q.id}-verdict`} checked={ans.verdict === v} onChange={() => set({ verdict: v })} />
               {v ? 'נכונה' : 'לא נכונה'}
             </label>
@@ -160,7 +160,7 @@ function QuestionView({ world, q, n, order, ans, set }: { world: World; q: ExamQ
         <fieldset className="choice" data-testid="exam-reason">
           <legend>2. בחרו את הנימוק <small className="muted">(5%)</small></legend>
           {q.b.reasons.map((r, i) => (
-            <label key={i} className={`choice-opt${ans.reason === i ? ' on' : ''}`}>
+            <label key={i} className={`choice-opt${ans.reason === i ? ' on' : ''}`} data-testid={`reason-${i}`}>
               <input type="radio" name={`${q.id}-reason`} checked={ans.reason === i} onChange={() => set({ reason: i })} />
               <Prose text={r} />
             </label>
@@ -172,7 +172,7 @@ function QuestionView({ world, q, n, order, ans, set }: { world: World; q: ExamQ
         <fieldset className="choice" data-testid="exam-mcq">
           <legend><Prose text={q.c.text} /></legend>
           {order.map((oi, k) => (
-            <label key={oi} className={`choice-opt${ans.choice === oi ? ' on' : ''}`}>
+            <label key={oi} className={`choice-opt${ans.choice === oi ? ' on' : ''}`} data-testid={`mcq-opt-${oi}`}>
               <input type="radio" name={`${q.id}-mcq`} checked={ans.choice === oi} onChange={() => set({ choice: oi })} />
               <span className="choice-n">{HEB_LETTERS[k]}.</span> <Prose text={q.c.options[oi]} />
             </label>
