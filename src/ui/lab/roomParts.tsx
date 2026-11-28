@@ -46,6 +46,8 @@ export interface PuzzleHost {
   stars: boolean
   /** Remounts the puzzle with fresh local state ("התחל מחדש"). */
   onRestart: () => void
+  /** A mock-exam part: no "show the answer", and choice puzzles take one answer only. */
+  exam?: boolean
 }
 
 /** A lab room: solves and help are saved under the room's id. */
@@ -90,6 +92,9 @@ export function HostHints({ host }: { host: PuzzleHost }) {
   const [shown, setShown] = useState(0)
   return <Hints hints={host.hints} shown={shown} costsStar={host.stars} onReveal={() => { setShown(s => s + 1); host.markHelped() }} />
 }
+
+/** Whether a puzzle may offer "show the answer" after REVEAL_AFTER misses (never in an exam). */
+export const canReveal = (host: PuzzleHost, wrong: number) => !host.exam && wrong >= REVEAL_AFTER
 
 /** The "show the answer" button's note: it costs a star only where there are stars. */
 export const revealNote = (host: PuzzleHost) => (host.stars ? <span className="muted"> · מוותר על כוכב</span> : null)

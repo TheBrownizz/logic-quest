@@ -11,10 +11,7 @@ import { NotFound } from '../StageScreen'
 import { Prose } from '../Prose'
 import { Stars } from '../Stars'
 import { CircuitEditor } from './CircuitEditor'
-import { CodePuzzle } from './CodePuzzle'
-import { DelayPuzzle } from './DelayPuzzle'
-import { KMapPuzzle } from './KMapPuzzle'
-import { NumberPuzzle } from './NumberPuzzle'
+import { PuzzleView } from './PuzzleView'
 import { HostHints, useRoomHost, type PuzzleHost } from './roomParts'
 import {
   alignTable, autoLayout, checkCircuit, errorText, findRoom, initialCircuit,
@@ -53,11 +50,7 @@ function RoomView({ world, stage, room }: NonNullable<ReturnType<typeof findRoom
       <a className="back" href={hrefs.stage(world.id, stage.id)}>→ {stage.title}</a>
       <h1 className="title">{room.title}</h1>
       <Prose as="p" className="intro" text={room.intro} />
-      {pz.type === 'circuit' ? <CircuitPuzzleView key={key} host={host} puzzle={pz} room={{ id: room.id, autofill: attempt === 0 }} />
-        : pz.type === 'delay' ? <DelayPuzzle key={key} host={host} puzzle={pz} world={world} />
-          : pz.type === 'kmap' ? <KMapPuzzle key={key} host={host} puzzle={pz} />
-            : pz.type === 'number' ? <NumberPuzzle key={key} host={host} puzzle={pz} />
-              : <CodePuzzle key={key} host={host} puzzle={pz} />}
+      <PuzzleView key={key} host={host} puzzle={pz} world={world} room={{ id: room.id, autofill: attempt === 0 }} />
       {save.rooms[room.id]?.solved && <NextRoom world={world} stage={stage} room={room} />}
     </section>
   )

@@ -1,0 +1,24 @@
+/* Schematics and state diagrams: strokes follow the text colour, accents come from theme tokens. */
+.schematic, .state-diagram { display: block; width: 100%; height: auto; margin: 8px auto; direction: ltr; }
+.schematic { color: var(--text); }
+.sch-body { fill: var(--surface-hi); stroke: var(--text); stroke-width: 2.2; stroke-linejoin: round; }
+.sch-stub, .sch-line, .sch-clock { fill: none; stroke: var(--text); stroke-width: 2; stroke-linejoin: round; }
+.sch-wire { fill: none; stroke: var(--muted); stroke-width: 2; stroke-linejoin: round; }
+.sch-frame { fill: none; stroke: var(--zero); stroke-width: 1.5; stroke-dasharray: 6 5; }
+.sch-bubble { fill: var(--surface); stroke: var(--text); stroke-width: 2; }
+.sch-dot { fill: var(--text); }
+.sch-term { fill: var(--amber); }
+.sch-label { font-family: var(--font-mono); font-size: 15px; font-weight: 700; fill: var(--amber); }
+.sch-pin { font-family: var(--font-mono); font-size: 12px; fill: var(--text); }
+.sch-name { font-family: var(--font-mono); font-size: 11px; fill: var(--muted); }
+
+.sd-edge path { fill: none; stroke: var(--muted); stroke-width: 2; }
+.sd-edge text { font-family: var(--font-mono); font-size: 12px; fill: var(--text); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; }
+.sd-head { fill: var(--muted); }
+.sd-head.hot { fill: var(--amber); }
+.sd-edge.hot path { stroke: var(--amber); stroke-width: 3; }
+.sd-node circle { fill: var(--surface-hi); stroke: var(--text); stroke-width: 2; transition: fill .2s, stroke .2s; }
+.sd-node.cur circle { fill: color-mix(in srgb, var(--one) 22%, var(--surface)); stroke: var(--one); filter: drop-shadow(0 0 6px var(--one-glow)); }
+.sd-name { font-family: var(--font-mono); font-size: 14px; font-weight: 700; fill: var(--text); }
+.sd-sub { font-family: var(--font-mono); font-size: 11px; fill: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .sd-node circle { transition: none; } }

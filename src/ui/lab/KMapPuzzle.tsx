@@ -47,7 +47,11 @@ function addGroup(gs: KGroup[], sel: Sel): KGroup[] {
 
 type Verdict = { kind: 'bad'; text: string } | { kind: 'ok'; minimal: boolean; result?: RoomResult }
 
-export function KMapPuzzle({ host, puzzle }: { host: PuzzleHost; puzzle: KMapPz }) {
+/**
+ * The k-map room. Embedded (fsm-equations) it takes the variable `names` (MSB first) and reports the solved
+ * cover's expression through `onSolved`.
+ */
+export function KMapPuzzle({ host, puzzle, names: varNames, onSolved }: { host: PuzzleHost; puzzle: KMapPz; names?: string[]; onSolved?: (expression: string) => void }) {
   const { nVars, minterms, dontCares } = puzzle
   const L = useMemo(() => kmapLayout(nVars), [nVars])
   const rb = Math.floor(nVars / 2)
@@ -99,7 +103,11 @@ export function KMapPuzzle({ host, puzzle }: { host: PuzzleHost; puzzle: KMapPz 
   }, [active, L])
 
   const cover = useMemo(() => checkCover(nVars, minterms, dontCares, groups.map(toGroup)), [nVars, minterms, dontCares, groups])
-  const names = NAMES.slice(0, nVars)
+  const names = varNames && varNames.length === nVars ? varNames : NAMES.slice(0, nVars)
+  const expression = useMemo(() => {
+    const terms = groups.map(g => groupToTerm(nVars, toGroup(g)))
+    return terms.every(t => t !== null) ? formatSOP(terms as NonNullable<(typeof terms)[number]>[], names) : cover.expression
+  }, [groups, nVars, names, cover.expression])
 
   const check = () => {
     let text: string | null = null
@@ -109,6 +117,7 @@ export function KMapPuzzle({ host, puzzle }: { host: PuzzleHost; puzzle: KMapPz 
     if (text) { setVerdict({ kind: 'bad', text }); return }
     const result = solve({ solved: true, optimal: cover.isMinimal, noHints: !helped })
     setVerdict({ kind: 'ok', minimal: cover.isMinimal, result })
+    onSolved?.(expression)
   }
 
   const key = (r: number, c: number) => `${r},${c}`
@@ -185,7 +194,7 @@ export function KMapPuzzle({ host, puzzle }: { host: PuzzleHost; puzzle: KMapPz 
         </div>
 
         <div className="kside">
-          <div className="kexpr mono" dir="ltr" data-testid="kmap-expr">f = {cover.expression}</div>
+          <div className="kexpr mono" dir="ltr" data-testid="kmap-expr">f = {expression}</div>
           <div className="kchips" aria-label="הקבוצות שלך">
             {groups.length === 0 && <span className="muted">עוד אין קבוצות</span>}
             {groups.map((g, i) => {
@@ -223,7 +232,7 @@ export function KMapPuzzle({ host, puzzle }: { host: PuzzleHost; puzzle: KMapPz 
                 <strong className="verdict-title">{verdict.minimal ? 'נכון!' : 'נכון – אבל אפשר עם פחות ליטרלים'}</strong>
                 {verdict.result && <Stars n={stars(verdict.result)} testId="result-stars" />}
               </div>
-              <p className="mono-num" dir="ltr">f = {cover.expression}</p>
+              <p className="mono-num" dir="ltr">f = {expression}</p>
               {!verdict.minimal && <p>נסו לאחד קבוצות לגדולות יותר, גם דרך קצוות המפה{host.stars ? ', כדי לקבל כוכב אופטימום' : ''}.</p>}
             </div>
           )}

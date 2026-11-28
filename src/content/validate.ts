@@ -1,7 +1,13 @@
 import { matches } from '../logic/boolean'
 import { arrivalTimes, circuitTruthTable, gateCount, usesOnly, type Chip } from '../logic/circuit'
 import type { Circuit } from '../logic/circuit'
-import type { Card, Room, World } from './types'
+import { validateWaveConfig } from '../logic/waveform'
+import { reduceStates, type StateTable } from '../logic/fsm'
+import { layoutSchematic } from '../ui/schematic/geometry'
+import { layoutStateDiagram } from '../ui/schematic/stateDiagram'
+import { tableOf, usedRows, usedStates } from '../ui/lab/seqLogic'
+import { allLessons } from './lessons/catalog'
+import type { Card, ExamQuestion, MachineSpec, Room, World } from './types'
 
 const norm = (s: string) => s.replace(/\s+/g, '').toUpperCase()
 const sameList = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i])
@@ -78,7 +84,84 @@ export function validateRoom(room: Room, chips: Record<string, Chip>, errs: stri
       if (p.inputs.length === 0) err('code room needs a non-empty inputs list')
       break
     }
+    case 'state-table': {
+      const t = machineTable(p.machine, err)
+      if (!t) break
+      if (p.show === 'equations' && p.machine.from !== 'equations') err('show "equations" needs a machine given by equations')
+      if (p.show === 'diagram') drawable(t, err)
+      if (usedRows(t).length > 16) err(`state table has ${usedRows(t).length} rows (at most 16)`)
+      if (p.fill === 'out' && t.outputs.length === 0) err('fill "out" but the machine has no outputs')
+      break
+    }
+    case 'fsm-equations': {
+      const t = machineTable(p.machine, err)
+      if (!t) break
+      const n = t.stateVars.length + t.inputs.length
+      if (n < 2 || n > 4) err(`fsm-equations needs 2–4 variables (state variables + inputs) for its K-maps, has ${n}`)
+      if (p.show === 'diagram') drawable(t, err)
+      break
+    }
+    case 'waveform': {
+      for (const m of validateWaveConfig(p.kind, p.clk, p.inputs, p.q0)) err(`waveform: ${m}`)
+      if (p.clk.length < 4 || p.clk.length > 24) err(`waveform has ${p.clk.length} columns (4–24)`)
+      const extra = Object.keys(p.inputs).filter(k => !WAVE_INPUTS[p.kind]?.includes(k))
+      if (extra.length) err(`waveform inputs ${extra.join(',')} are not inputs of ${p.kind}`)
+      break
+    }
+    case 'state-reduce': {
+      const t = machineTable(p.machine, err)
+      if (!t) break
+      const states = usedStates(t)
+      if (states.length > 8) err(`state-reduce has ${states.length} states (at most 8)`)
+      try {
+        if (reduceStates(t).length === states.length) err('state-reduce: nothing to merge (every state is distinct)')
+      } catch (e) { err(`state-reduce: ${msg(e)}`) }
+      if (p.show === 'diagram') drawable(t, err)
+      break
+    }
+    case 'identify': {
+      if (!p.question.trim()) err('identify question is empty')
+      if (p.options.length < 2 || p.options.length > 6) err(`identify has ${p.options.length} options (need 2–6)`)
+      if (new Set(p.options.map(o => o.trim())).size !== p.options.length || p.options.some(o => !o.trim())) err('identify options are not distinct and non-empty')
+      if (!Number.isInteger(p.correct) || p.correct < 0 || p.correct >= p.options.length) err('identify correct out of range')
+      try { layoutSchematic(p.schematic) } catch (e) { err(`schematic: ${msg(e)}`) }
+      break
+    }
   }
+}
+
+const WAVE_INPUTS: Record<string, string[]> = { 'latch-D': ['D'], 'latch-SR': ['S', 'R'], 'ff-D': ['D'], 'ff-T': ['T'], 'ff-JK': ['J', 'K'] }
+
+/** The machine's state table, or undefined after reporting why it cannot be built. */
+function machineTable(m: MachineSpec, err: (m: string) => void): StateTable | undefined {
+  // Review Focus 1: a machine driven by S and R would list the forbidden S=R=1 input in its table
+  if (m.inputs.includes('S') && m.inputs.includes('R')) {
+    err('machine has inputs S and R: its table would list the forbidden S=R=1 input')
+    return undefined
+  }
+  if (m.stateVars.length < 1 || m.stateVars.length > 3) err(`machine has ${m.stateVars.length} state variables (1–3)`)
+  if (m.inputs.length > 2) err(`machine has ${m.inputs.length} inputs (at most 2)`)
+  try { return tableOf(m) } catch (e) { err(`machine: ${msg(e)}`); return undefined }
+}
+
+function drawable(t: StateTable, err: (m: string) => void): void {
+  try { layoutStateDiagram(t) } catch (e) { err(`state diagram: ${msg(e)}`) }
+}
+
+/** One boss question: part א as a room, parts ב and ג as cards of the boss, and a review link that exists. */
+function validateExamQuestion(q: ExamQuestion, w: World, bossId: string, chips: Record<string, Chip>, lessonIds: Set<string>, errs: string[]): void {
+  const err = (m: string) => errs.push(`${q.id}: ${m}`)
+  if (![1, 2, 3, 4].includes(q.topic)) err(`topic ${q.topic} is not 1–4`)
+  if (!q.prompt.trim()) err('prompt is empty')
+  validateRoom({ id: q.id, title: q.id, intro: q.prompt, puzzle: q.a, hints: [] }, chips, errs)
+  if (q.b.kind !== 'claim') err('part b must be a claim')
+  if (q.c.kind !== 'mcq') err('part c must be an mcq')
+  validateCard(q.b, bossId, errs)
+  validateCard(q.c, bossId, errs)
+  const roomIds = new Set(w.stages.flatMap(s => s.rooms.map(r => r.id)))
+  if (!q.review.lesson && !q.review.room) err('review needs a lesson or a room')
+  if (q.review.room && !roomIds.has(q.review.room)) err(`review room "${q.review.room}" does not exist`)
+  if (q.review.lesson && !lessonIds.has(q.review.lesson)) err(`review lesson "${q.review.lesson}" does not exist`)
 }
 
 function validateCard(card: Card, stageId: string, errs: string[]): void {
@@ -133,6 +216,17 @@ export function validateWorld(w: World, chips: Record<string, Chip> = {}): strin
     for (const card of stage.cards) {
       dup(card.id)
       validateCard(card, stage.id, errs)
+    }
+  }
+  if (w.boss) {
+    dup(w.boss.id)
+    if (w.stages.some(s => s.id === w.boss!.id)) errs.push(`${w.boss.id}: the boss id is also a stage id`)
+    const lessonIds = new Set(allLessons.map(l => l.id))
+    for (const q of w.boss.bank) {
+      dup(q.id)
+      dup(q.b.id)
+      dup(q.c.id)
+      validateExamQuestion(q, w, w.boss.id, all, lessonIds, errs)
     }
   }
   return errs

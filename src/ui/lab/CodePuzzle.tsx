@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import type { LabPuzzle } from '../../content/types'
 import type { RoomResult } from '../../game/progress'
-import { HostHints, REVEAL_AFTER, RestartButton, SolvedVerdict, WRONG_TEXT, revealNote, type PuzzleHost } from './roomParts'
+import { HostHints, RestartButton, canReveal, SolvedVerdict, WRONG_TEXT, revealNote, type PuzzleHost } from './roomParts'
 import { checkCode } from './labLogic'
 import { ProseLines } from '../Prose'
 
@@ -57,7 +57,7 @@ export function CodePuzzle({ host, puzzle }: { host: PuzzleHost; puzzle: CodePz 
         <div className="panel-col">
           {done && <SolvedVerdict result={done.result} />}
           {!done && marks && <div className="verdict bad" role="alert" key={wrong}><strong>{WRONG_TEXT}</strong></div>}
-          {!done && wrong >= REVEAL_AFTER && !revealed && (
+          {!done && canReveal(host, wrong) && !revealed && (
             <button type="button" className="btn ghost" onClick={reveal}>הצג תשובה{revealNote(host)}</button>
           )}
         </div>
