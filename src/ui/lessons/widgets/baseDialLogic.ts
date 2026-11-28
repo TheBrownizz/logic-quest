@@ -25,9 +25,6 @@ export interface BaseDialGoal {
 
 const digitValue = (ch: string) => parseInt(ch, 36)
 
-/** The character of a digit value: 0-9, then A-F. */
-export const digitChar = (d: number): string => d.toString(16).toUpperCase()
-
 /** Throws on a config the dial cannot show (bad base, width or starting digits). Lesson tests run it on every BaseDial step. */
 export function checkConfig(c: BaseDialConfig): void {
   if (!Number.isInteger(c.base) || c.base < 2 || c.base > 16) throw new RangeError(`BaseDial: base ${c.base} is not 2–16`)
@@ -92,15 +89,10 @@ export function stepDigit(digits: number[], i: number, dir: 1 | -1, base: number
   return digits.map((d, j) => (j === i ? (d + dir + base) % base : d))
 }
 
-/** The dial shown for a missing config (no base, width or digits at all): base 2, four places. */
-export const DEFAULT_CONFIG: BaseDialConfig = { base: 2, width: 4 }
-
 export function initial(c: BaseDialConfig): BaseDialState {
-  const missing = c.base === undefined && c.width === undefined && c.digits === undefined
-  const cfg = missing ? DEFAULT_CONFIG : c
   // a bad base, width or starting digit throws, so validateLessons reports a content typo
-  checkConfig(cfg)
-  return { digits: cfg.digits ? [...cfg.digits].map(digitValue) : Array.from({ length: cfg.width }, () => 0) }
+  checkConfig(c)
+  return { digits: c.digits ? [...c.digits].map(digitValue) : Array.from({ length: c.width }, () => 0) }
 }
 
 export function isGoalMet(s: BaseDialState, g: BaseDialGoal, c: BaseDialConfig): boolean {

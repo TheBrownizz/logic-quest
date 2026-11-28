@@ -36,7 +36,6 @@ export interface ComplementLabGoal {
 export const phasesFor = (c: ComplementLabConfig): readonly ComplementPhase[] =>
   c.mode === 'complement' ? COMPLEMENT_PHASES.slice(0, 3) : COMPLEMENT_PHASES
 
-export const digitChar = (d: number): string => d.toString(16).toUpperCase()
 const parse = (s: string, base: number, width: number, what: string): number[] => {
   if (s.length !== width) throw new RangeError(`ComplementLab: ${what} "${s}" must have ${width} digits`)
   return [...s].map(ch => {

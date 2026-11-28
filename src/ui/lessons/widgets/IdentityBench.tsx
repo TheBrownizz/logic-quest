@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { WidgetProps } from './types'
-import { assignmentOf, rowCount } from './gateToyLogic'
+import { assignmentOf, rowCount, rowOf } from './gateToyLogic'
 import { flip, opened, pickRow, rowValues, triedDifferences, type IdentityBenchConfig, type IdentityBenchGoal, type IdentityBenchState } from './identityBenchLogic'
 import './GateToy.css'
 import './IdentityBench.css'
@@ -20,7 +20,7 @@ export function IdentityBench({ config, onState, reducedMotion }: WidgetProps<Id
 
   const { vars, left, right } = config
   const N = rowCount(vars.length)
-  const rowNow = vars.reduce((acc, v) => acc * 2 + (state.inputs[v] ? 1 : 0), 0)
+  const rowNow = rowOf(vars, state.inputs)
   const [lv, rv] = rowValues(config, rowNow)
   const diffs = triedDifferences(config, state)
   const all = state.tried.length === N
@@ -39,7 +39,7 @@ export function IdentityBench({ config, onState, reducedMotion }: WidgetProps<Id
   const toggle = (v: string) => {
     const s = flip(config, state, v)
     setState(s)
-    setLast(vars.reduce((a, x) => a * 2 + (s.inputs[x] ? 1 : 0), 0))
+    setLast(rowOf(vars, s.inputs))
   }
   const go = (row: number) => { setState(pickRow(config, state, row)); setLast(row) }
   const runAll = () => {

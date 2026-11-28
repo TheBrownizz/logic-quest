@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from 'react'
 import type { WidgetProps } from './types'
 import {
-  digitChar, digitsForValue, initial, isNegative, placeWeights, stepDigit, unsignedValue, valueOf,
+  digitsForValue, initial, isNegative, placeWeights, stepDigit, unsignedValue, valueOf,
   type BaseDialConfig, type BaseDialGoal, type BaseDialState,
 } from './baseDialLogic'
+import { digitChar, sub, sup } from './shared/scripts'
 import './BaseDial.css'
 
-const sup = (n: number) => String(n).split('').map(d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[+d]).join('')
-const sub = (n: number) => String(n).split('').map(d => '₀₁₂₃₄₅₆₇₈₉'[+d]).join('')
 
 /**
  * BaseDial: digits you step up and down (like a combination lock). Above every digit sits its place weight r^i;

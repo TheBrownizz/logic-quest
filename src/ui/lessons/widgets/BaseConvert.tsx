@@ -4,10 +4,9 @@ import {
   advance, divisionSteps, groupPlan, initial, stateAt, totalSteps, valueOfConfig,
   type BaseConvertConfig, type BaseConvertGoal, type BaseConvertState,
 } from './baseConvertLogic'
+import { digitChar, sub } from './shared/scripts'
 import './BaseConvert.css'
 
-const sub = (n: number) => String(n).split('').map(d => '₀₁₂₃₄₅₆₇₈₉'[+d]).join('')
-const dch = (d: number) => d.toString(16).toUpperCase()
 const STEP_MS = 800
 
 /**
@@ -52,7 +51,7 @@ export function BaseConvert({ config, goal, onState, completed, reducedMotion }:
             <li key={i} className={`bc-row mono${i < k ? ' shown' : ''}${i === k - 1 ? ' latest' : ''}`} data-testid={`bc-row-${i}`} aria-hidden={i >= k}>
               <span className="bc-n">{r.n}</span><span className="bc-op">÷ {config.to}</span><span className="bc-eq">=</span><span className="bc-q">{r.q}</span>
               <span className="bc-rem" title="שארית">
-                <span className="bc-rem-label" dir="rtl">שארית</span> <b>{dch(r.r)}</b>
+                <span className="bc-rem-label" dir="rtl">שארית</span> <b>{digitChar(r.r)}</b>
               </span>
             </li>
           ))}

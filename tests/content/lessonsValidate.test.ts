@@ -108,7 +108,7 @@ describe('validateLessons', () => {
   })
 
   it('widget: known name; a goal needs an example that meets it; config must load', () => {
-    const w = (over: object): Step => ({ id: 'w', kind: 'widget', prompt: 'הזיזו', widget: 'BaseDial', config: {}, ...over }) as Step
+    const w = (over: object): Step => ({ id: 'w', kind: 'widget', prompt: 'הזיזו', widget: 'BaseDial', config: { base: 2, width: 4 }, ...over }) as Step
     expect(errs(withSteps([w({}), recap]))).toEqual([])
     has(withSteps([w({ widget: 'Nope' }), recap]), /unknown widget "Nope"/)
     has(withSteps([w({ goal: { value: 45 } }), recap]), /goal without an example/)

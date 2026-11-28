@@ -4,13 +4,12 @@ import {
   snapshot, timing, toNumber, values,
   type Bar, type RippleTimelineConfig, type RippleTimelineGoal, type RippleTimelineState,
 } from './rippleTimelineLogic'
+import { sub } from './shared/scripts'
 import './RippleTimeline.css'
 
 /** How long the "play" animation takes at most, in ms (shorter circuits play shorter). */
 const PLAY_MS = 4200
 const STEP_NS = 5
-
-const sub = (i: number) => String.fromCodePoint(0x2080 + i)
 
 /** A bit that is shown only once its wire has settled ("?" before). */
 function Cell({ bit, ready, testId }: { bit: number; ready: boolean; testId?: string }) {

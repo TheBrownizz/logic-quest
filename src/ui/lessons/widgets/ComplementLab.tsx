@@ -1,12 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { WidgetProps } from './types'
 import {
-  digitChar, initial, modelOf, nextPhase, phaseIndex, phasesFor, prevPhase, valueOfDigits,
+  initial, modelOf, nextPhase, phaseIndex, phasesFor, prevPhase, valueOfDigits,
   type ComplementLabConfig, type ComplementLabGoal, type ComplementLabState, type ComplementModel, type ComplementPhase,
 } from './complementLabLogic'
+import { digitChar, sub } from './shared/scripts'
 import './ComplementLab.css'
 
-const sub = (n: number) => String(n).split('').map(d => '₀₁₂₃₄₅₆₇₈₉'[+d]).join('')
 const str = (d: number[]) => d.map(digitChar).join('')
 const REVEAL_MS = 240
 

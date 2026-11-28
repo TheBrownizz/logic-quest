@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import type { GateKind } from '../../../logic/circuit'
 import type { WidgetProps } from './types'
-import { assignmentOf, boxLayout, columnOf, flip, opened, outputOf, pickRow, rowCount, type GateToyConfig, type GateToyGoal, type GateToyState } from './gateToyLogic'
+import { assignmentOf, boxLayout, columnOf, flip, opened, outputOf, pickRow, rowCount, rowOf, type GateToyConfig, type GateToyGoal, type GateToyState } from './gateToyLogic'
 import './GateToy.css'
 
 const W0 = 380
@@ -83,11 +83,11 @@ export function GateToy({ config, onState, reducedMotion }: WidgetProps<GateToyC
   const LAMP_X = LAMP_X0 + extra
   const outX = g.out
   const col = columnOf(vars, expr)
-  const rowNow = vars.reduce((acc, v) => acc * 2 + (state.inputs[v] ? 1 : 0), 0)
+  const rowNow = rowOf(vars, state.inputs)
   const N = rowCount(n)
 
   const act = (next: GateToyState, row: number) => { setState(next); setLast(row); setPulse(p => p + 1) }
-  const toggle = (v: string) => { const s = flip(config, state, v); act(s, vars.reduce((a, x) => a * 2 + (s.inputs[x] ? 1 : 0), 0)) }
+  const toggle = (v: string) => { const s = flip(config, state, v); act(s, rowOf(vars, s.inputs)) }
   const go = (row: number) => act(pickRow(config, state, row), row)
 
   return (
