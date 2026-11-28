@@ -20,15 +20,20 @@ function bitsError(name: string, s: readonly unknown[]): string | null {
 
 /**
  * Problems that make a waveform puzzle ill-defined; an empty list means it is fine.
- * Checks: clk and inputs are bits of equal length, clk has at least one rising edge, and no input
+ * Checks: kind inputs present, q0 is a bit, SR latch never has S=R=1 in any column, `simulateWave` does not throw, clk and inputs are bits of equal length, clk has at least one rising edge, and no input
  * changes on a column boundary where clk changes (in either direction), so every latch closing and
  * every flip-flop edge samples a stable value. Clock phases may span several columns.
  */
 export function validateWaveConfig(
+  kind: WaveKind,
   clk: readonly Bit[],
   inputs: Record<string, readonly Bit[]>,
+  q0: Bit,
 ): string[] {
   const errs: string[] = []
+  if (!SPEC[kind]) return [`unknown waveform kind: ${String(kind)}`]
+  if (!isBit(q0)) errs.push('q0 is not 0 or 1')
+  for (const n of SPEC[kind].names) if (!inputs[n]) errs.push(`missing input ${n}`)
   const e0 = bitsError('clk', clk)
   if (e0) errs.push(e0)
   for (const [n, s] of Object.entries(inputs)) {
@@ -37,11 +42,24 @@ export function validateWaveConfig(
     if (s.length !== clk.length) errs.push(`input ${n} has length ${s.length}, clk has ${clk.length}`)
   }
   if (errs.length) return errs
+  if (kind === 'latch-SR') {
+    // forbidden in any column, even while the latch is disabled
+    for (let i = 0; i < clk.length; i++) {
+      if (inputs.S[i] === 1 && inputs.R[i] === 1) errs.push(`forbidden S=R=1 in column ${i}`)
+    }
+  }
   if (!clk.some((c, i) => i > 0 && clk[i - 1] === 0 && c === 1)) errs.push('clk has no rising edge')
   for (let i = 1; i < clk.length; i++) {
     if (clk[i] === clk[i - 1]) continue
     for (const [n, s] of Object.entries(inputs)) {
       if (s[i] !== s[i - 1]) errs.push(`input ${n} changes at the clk transition into column ${i}`)
+    }
+  }
+  if (errs.length === 0) {
+    try {
+      simulateWave(kind, clk, inputs, q0)
+    } catch (e) {
+      errs.push((e as Error).message)
     }
   }
   return errs

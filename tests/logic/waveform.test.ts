@@ -118,18 +118,57 @@ describe('q0 and bit validation', () => {
 })
 
 describe('validateWaveConfig', () => {
+  const v = (clk: string, D: string) => validateWaveConfig('ff-D', b(clk), { D: b(D) }, 0)
   it('accepts multi-column phases with stable boundaries', () => {
-    expect(validateWaveConfig(b('0011110'), { D: b('0001100') })).toEqual([])
+    expect(v('0011110', '0001100')).toEqual([])
   })
   it('flags input changes at any clk transition', () => {
-    expect(validateWaveConfig(b('0011'), { D: b('0001') })).toEqual([])
-    expect(validateWaveConfig(b('0011'), { D: b('0010') })).toHaveLength(1)
-    expect(validateWaveConfig(b('01110'), { D: b('00111') })).toEqual([])
+    expect(v('0011', '0001')).toEqual([])
+    expect(v('0011', '0010')).toHaveLength(1)
+    expect(v('01110', '00111')).toEqual([])
   })
   it('reports problems', () => {
-    expect(validateWaveConfig(b('0101'), { D: b('0011') }).length).toBeGreaterThan(0)
-    expect(validateWaveConfig(b('0000'), { D: b('0000') })).toContain('clk has no rising edge')
-    expect(validateWaveConfig(b('01'), { D: b('0') }).length).toBeGreaterThan(0)
-    expect(validateWaveConfig([0, 3 as never], {}).length).toBeGreaterThan(0)
+    expect(v('0101', '0011').length).toBeGreaterThan(0)
+    expect(v('0000', '0000')).toContain('clk has no rising edge')
+    expect(v('01', '0').length).toBeGreaterThan(0)
+    expect(validateWaveConfig('ff-D', [0, 3 as never], {}, 0).length).toBeGreaterThan(0)
+    expect(validateWaveConfig('ff-JK', b('01'), { J: b('00') }, 0).length).toBeGreaterThan(0)
+  })
+  it('rejects SR latch S=R=1 in any column, as the simulator does', () => {
+    const clk = b('1110011')
+    const inputs = { S: b('0000110'), R: b('0100110') } // S=R=1 at cols 5,6
+    expect(validateWaveConfig('latch-SR', clk, inputs, 0).some(e => /forbidden/.test(e))).toBe(true)
+    // also while disabled (clk=0)
+    const disabled = { S: b('0001100'), R: b('0001100') }
+    expect(validateWaveConfig('latch-SR', b('1110011'), disabled, 0).length).toBeGreaterThan(0)
+    // simulator throws on the enabled case
+    expect(() => simulateWave('latch-SR', clk, inputs, 0)).toThrow(/forbidden/)
+  })
+  it('property: validator accepts => simulateWave does not throw (seeded random)', () => {
+    let seed = 12345
+    const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32)
+    const kinds = ['latch-D', 'latch-SR', 'ff-D', 'ff-T', 'ff-JK'] as const
+    const names = { 'latch-D': ['D'], 'latch-SR': ['S', 'R'], 'ff-D': ['D'], 'ff-T': ['T'], 'ff-JK': ['J', 'K'] }
+    let accepted = 0
+    for (let n = 0; n < 4000; n++) {
+      const kind = kinds[Math.floor(rnd() * kinds.length)]
+      const len = 3 + Math.floor(rnd() * 10)
+      const bit = (p: number) => (rnd() < p ? 1 : 0) as Bit
+      // clk in runs of 1-3 columns
+      const clk: Bit[] = []
+      let c = bit(0.5)
+      while (clk.length < len) {
+        for (let k = 1 + Math.floor(rnd() * 3); k > 0 && clk.length < len; k--) clk.push(c)
+        c = (1 - c) as Bit
+      }
+      const inputs: Record<string, Bit[]> = {}
+      for (const nm of names[kind]) inputs[nm] = Array.from({ length: len }, () => bit(0.4))
+      const q0 = bit(0.5)
+      if (validateWaveConfig(kind, clk, inputs, q0).length === 0) {
+        accepted++
+        expect(() => simulateWave(kind, clk, inputs, q0)).not.toThrow()
+      }
+    }
+    expect(accepted).toBeGreaterThan(50)
   })
 })
