@@ -64,6 +64,9 @@ describe('stage 4 lessons: structure', () => {
       }
     }
   })
+  it("4.1 and 4.2 do not use Don't Care before 4.3 teaches it", () => {
+    for (const l of lessons.slice(0, 2)) expect(JSON.stringify(l.steps) + JSON.stringify(l.skipQuiz), l.id).not.toMatch(/Don.t Care/)
+  })
   it('no more than two explain steps in a row', () => {
     for (const l of lessons) {
       let run = 0
