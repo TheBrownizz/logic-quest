@@ -48,6 +48,8 @@ export class SyncEngine {
   private backoff = 0
   /** Bumped by overwrite(): a pull that started before it must not apply its (now stale) result. */
   private epoch = 0
+  private pulledOnce = false
+  private readyCbs = new Set<() => void>()
   private forced: SaveData | null = null
 
   constructor(
@@ -117,6 +119,16 @@ export class SyncEngine {
       await new Promise(r => setTimeout(r, 20))
     }
     return false
+  }
+
+  /** True once the server's save has been read and merged at least once (a first successful pull). */
+  get ready(): boolean { return this.pulledOnce }
+
+  /** Calls `cb` once the first pull has succeeded (at once if it already has). Returns an unsubscribe. */
+  onReady(cb: () => void): () => void {
+    if (this.pulledOnce) { cb(); return () => {} }
+    this.readyCbs.add(cb)
+    return () => { this.readyCbs.delete(cb) }
   }
 
   onStatus(cb: (s: SyncStatus) => void): () => void {
@@ -197,6 +209,7 @@ export class SyncEngine {
       merged ??= mergeSaves(this.localSave(), remote)
       this.current = merged
       if (body(merged) !== body(mergeSaves(remote, remote))) this.dirty = true
+      if (!this.pulledOnce) { this.pulledOnce = true; for (const cb of [...this.readyCbs]) cb(); this.readyCbs.clear() }
       return true
     }
   }
@@ -215,7 +228,10 @@ export class SyncEngine {
         if (r.error) { this.fail(); return }
         continue
       }
-      const { data: rows, error: e2 } = await this.client.from('saves').update({ data: d, rev: row.rev + 1 }).eq('user_id', this.userId).eq('rev', row.rev).select('rev')
+      // The reset must outrank whatever generation the server has now, or other devices would ignore it.
+      const gen = Math.max(d.resetGen ?? 0, (parseSave(row.data)?.resetGen ?? 0) + 1)
+      const out: SaveData = { ...d, resetGen: gen }
+      const { data: rows, error: e2 } = await this.client.from('saves').update({ data: out, rev: row.rev + 1 }).eq('user_id', this.userId).eq('rev', row.rev).select('rev')
       if (this.stopped) return
       if (e2) { this.fail(); return }
       if (rows && rows.length > 0) {
@@ -223,7 +239,12 @@ export class SyncEngine {
         this.forced = null
         this.known = row.rev + 1
         this.readable = true
-        if (this.current !== d) { this.dirty = true; this.schedulePush(); return } // changed while the reset was written
+        const changed = this.current !== d
+        if (gen !== (d.resetGen ?? 0)) {
+          this.apply(l => ({ ...l, resetGen: gen })) // the device now carries the generation it wrote
+          if (this.current) this.current = { ...this.current, resetGen: gen }
+        }
+        if (changed) { this.dirty = true; this.schedulePush(); return } // changed while the reset was written
         this.dirty = false
         this.markSynced()
         return

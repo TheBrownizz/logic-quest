@@ -43,7 +43,7 @@ export function SaveMenu({ onClose }: { onClose: () => void }) {
     try {
       const r = store.importJSON(await f.text())
       if (r.ok) {
-        if (user && !window.confirm('הקובץ יחליף את ההתקדמות בחשבון, בכל המכשירים. להמשיך?')) return
+        if (user && !window.confirm('הייבוא יחליף את ההתקדמות בחשבון ובכל המכשירים המחוברים, ואי אפשר לבטל. להמשיך?')) return
         setMsg(null)
         replace(r.data)
         setImported(true)

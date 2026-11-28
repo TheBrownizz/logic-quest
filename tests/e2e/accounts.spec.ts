@@ -90,6 +90,62 @@ test('keep as guest: nothing is merged, and the guest save is intact after signi
   await expect(page.getByRole('dialog')).toHaveCount(0)
 })
 
+test('I2: attach starts from the server\'s save, so a reset made on another device does not swallow the guest\'s progress', async ({ page }) => {
+  // the account was reset elsewhere (generation 1) and has its own progress
+  const remote = { ...emptySave(), resetGen: 1, knowledge: ['srv-card'] }
+  await page.addInitScript(([k, v]) => { if (!sessionStorage.getItem('rows-seeded')) { localStorage.setItem(k, v); sessionStorage.setItem('rows-seeded', '1') } },
+    [ROWS, JSON.stringify({ u1: { data: remote, rev: 3 } })] as const)
+  await seed(page, unlockedSave())
+  await page.goto('/#/')
+  await signIn(page)
+  await page.getByRole('dialog').getByRole('button', { name: 'צרף', exact: true }).click()
+  await synced(page)
+  await expect.poll(async () => solvedRooms((await rows(page)).u1.data).length).toBeGreaterThan(5)
+  const server = (await rows(page)).u1.data
+  expect(server.knowledge).toContain('srv-card')
+  expect(server.resetGen).toBe(1)
+  expect(solvedRooms(await readKey(page, 'logic-quest-save:u1')).length).toBeGreaterThan(5)
+})
+
+test('C1: signing out while offline still signs out, and a reload does not bring the account back', async ({ page, context }) => {
+  await page.goto('/#/')
+  await signIn(page)
+  await synced(page)
+  await context.setOffline(true)
+  await page.getByLabel(/^החשבון של/).click()
+  await page.getByRole('button', { name: 'התנתקות' }).click()
+  await expect(page.getByRole('button', { name: 'התחברות עם Google' }).first()).toBeVisible()
+  await context.setOffline(false)
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'התחברות עם Google' }).first()).toBeVisible()
+  await expect(page.getByLabel(/^החשבון של/)).toHaveCount(0)
+})
+
+test('the delete dialog keeps Tab inside it, and Escape closes it', async ({ page }) => {
+  await page.goto('/#/')
+  await signIn(page)
+  await page.getByLabel(/^החשבון של/).click()
+  await page.getByRole('button', { name: 'מחיקת חשבון' }).click()
+  const dlg = page.getByRole('dialog', { name: 'מחיקת חשבון' })
+  await expect(dlg).toBeVisible()
+  for (let i = 0; i < 6; i++) {
+    await page.keyboard.press('Tab')
+    expect(await page.evaluate(() => !!document.activeElement?.closest('[role=dialog]'))).toBe(true)
+  }
+  await page.keyboard.press('Escape')
+  await expect(dlg).toHaveCount(0)
+})
+
+test('the header shows the initial and the first name, never a remote avatar', async ({ page }) => {
+  const urls: string[] = []
+  page.on('request', r => urls.push(r.url()))
+  await page.goto('/#/')
+  await signIn(page)
+  await expect(page.getByLabel(/^החשבון של/)).toContainText('משתמש')
+  await expect(page.locator('.account img')).toHaveCount(0)
+  expect(urls.filter(u => !u.startsWith('data:') && new URL(u).origin !== new URL(page.url()).origin)).toEqual([])
+})
+
 test('Escape in the attach dialog keeps the progress as the guest\'s', async ({ page }) => {
   await seed(page, unlockedSave())
   await page.goto('/#/')

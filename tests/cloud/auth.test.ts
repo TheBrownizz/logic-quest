@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
-import { RETURN_HASH_KEY, deleteAccount, hasStoredSession, signInWithGoogle, takeRedirectCode } from '../../src/cloud/auth'
+import { RETURN_HASH_KEY, deleteAccount, hasStoredSession, signInWithGoogle, signOut, takeRedirectCode, withTimeout } from '../../src/cloud/auth'
 import type { SupabaseLike } from '../../src/cloud/types'
 
 function mem(init: Record<string, string> = {}) {
   const m = { ...init }
-  return { m, getItem: (k: string) => (k in m ? m[k] : null), setItem: (k: string, v: string) => { m[k] = v }, removeItem: (k: string) => { delete m[k] } }
+  return { m, get length() { return Object.keys(m).length }, key: (i: number) => Object.keys(m)[i] ?? null, getItem: (k: string) => (k in m ? m[k] : null), setItem: (k: string, v: string) => { m[k] = v }, removeItem: (k: string) => { delete m[k] } }
 }
 const loc = (search: string, hash: string) => ({ origin: 'https://x.github.io', pathname: '/logic-quest/', search, hash })
 
@@ -59,6 +59,45 @@ describe('deleteAccount', () => {
     const client = { functions: { invoke: async () => ({ error: { message: 'no' } }) }, auth: { signOut: vi.fn() } } as unknown as SupabaseLike
     await expect(deleteAccount(client, 'u1', st)).rejects.toThrow('no')
     expect(st.m['logic-quest-save:u1']).toBe('a')
+  })
+})
+
+describe('signOut (C1: signing out must work offline)', () => {
+  it('asks for a local sign-out', async () => {
+    const so = vi.fn(async () => ({ error: null }))
+    await signOut({ auth: { signOut: so } } as unknown as SupabaseLike, mem())
+    expect(so).toHaveBeenCalledWith({ scope: 'local' })
+  })
+  it('when signOut returns an error, the stored session is still removed (a reload does not bring the account back)', async () => {
+    const st = mem({ 'sb-abc-auth-token': '{"user":1}', 'sb-abc-auth-token-code-verifier': 'v', 'logic-quest-save:u1': 'a', 'logic-quest-save': 'g' })
+    const client = { auth: { signOut: async () => ({ error: { message: 'Failed to fetch' } }) } } as unknown as SupabaseLike
+    await expect(signOut(client, st)).resolves.toBeUndefined()
+    expect(Object.keys(st.m).sort()).toEqual(['logic-quest-save', 'logic-quest-save:u1'])
+    expect(hasStoredSession(st)).toBe(false)
+  })
+  it('when signOut throws, the stored session is still removed', async () => {
+    const st = mem({ 'sb-abc-auth-token': 'x' })
+    await signOut({ auth: { signOut: async () => { throw new Error('offline') } } } as unknown as SupabaseLike, st)
+    expect(hasStoredSession(st)).toBe(false)
+  })
+  it('deleteAccount: a failing sign-out after the server deleted the account is not an error', async () => {
+    const st = mem({ 'sb-abc-auth-token': 'x', 'logic-quest-save:u1': 'a' })
+    const client = { functions: { invoke: async () => ({ error: null }) }, auth: { signOut: async () => ({ error: { message: 'net' } }) } } as unknown as SupabaseLike
+    await expect(deleteAccount(client, 'u1', st)).resolves.toBeUndefined()
+    expect(st.m['logic-quest-save:u1']).toBeUndefined()
+    expect(hasStoredSession(st)).toBe(false)
+  })
+})
+
+describe('withTimeout (M9)', () => {
+  it('rejects a call that hangs, resolves one that answers', async () => {
+    vi.useFakeTimers()
+    const hung = withTimeout(new Promise<never>(() => {}), 10000)
+    const caught = hung.catch(e => (e as Error).message)
+    await vi.advanceTimersByTimeAsync(10001)
+    expect(await caught).toBe('timeout')
+    expect(await withTimeout(Promise.resolve(5), 10000)).toBe(5)
+    vi.useRealTimers()
   })
 })
 

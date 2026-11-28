@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { consumePendingCode, deleteAccount as deleteAccountOnServer, exchangeCode, hasPendingCode, hasStoredSession, signInWithGoogle, userSaveKey } from '../../cloud/auth'
+import { consumePendingCode, deleteAccount as deleteAccountOnServer, exchangeCode, hasPendingCode, hasStoredSession, signInWithGoogle, signOut as signOutOfBrowser, userSaveKey, withTimeout } from '../../cloud/auth'
 import { isCloudConfigured, loadSupabase } from '../../cloud/client'
 import { SyncEngine, type SyncStatus } from '../../cloud/sync'
 import type { SupabaseLike, SupabaseSession } from '../../cloud/types'
@@ -8,7 +8,7 @@ import { LocalProgressStore, type ProgressStore, type SaveData } from '../../gam
 import { SaveProvider, guestStore, useSave, useSaveInternal } from '../save'
 import { AttachGuestDialog } from './AttachGuestDialog'
 
-export interface AccountUser { id: string; email: string; name: string; avatar?: string }
+export interface AccountUser { id: string; email: string; name: string }
 export type Busy = 'signin' | 'saving' | 'deleting' | null
 
 export interface AccountApi {
@@ -18,6 +18,8 @@ export interface AccountApi {
   status: SyncStatus
   busy: Busy
   error: string | null
+  /** A non-error message to show a guest (for example after signing out before everything was uploaded). */
+  notice: string | null
   signIn(): Promise<void>
   /** Writes pending changes (a reset included), then signs out. */
   signOut(): Promise<void>
@@ -25,7 +27,7 @@ export interface AccountApi {
 }
 
 const none: AccountApi = {
-  supported: false, user: null, status: 'synced', busy: null, error: null,
+  supported: false, user: null, status: 'synced', busy: null, error: null, notice: null,
   signIn: async () => {}, signOut: async () => {}, deleteAccount: async () => {},
 }
 const AccountContext = createContext<AccountApi>(none)
@@ -34,7 +36,7 @@ export const useAccount = (): AccountApi => useContext(AccountContext)
 const toUser = (s: SupabaseSession | null): AccountUser | null => {
   if (!s) return null
   const m = s.user.user_metadata ?? {}
-  return { id: s.user.id, email: s.user.email ?? '', name: m.full_name ?? m.name ?? s.user.email ?? '', avatar: m.avatar_url ?? m.picture }
+  return { id: s.user.id, email: s.user.email ?? '', name: m.full_name ?? m.name ?? s.user.email ?? '' }
 }
 
 /** True when a save holds anything the player earned or made (so it is worth asking about). */
@@ -49,10 +51,15 @@ const ui = {
   set(k: string, v: string): void { try { localStorage.setItem(k, v) } catch { /* ignore */ } },
 }
 
-let bootPromise: Promise<{ client: SupabaseLike; session: SupabaseSession | null; error: string | null } | null> | undefined
-/** Once per page load: finishes an OAuth return and reads the stored session, loading the library only if needed. */
-function boot() {
-  bootPromise ??= (async () => {
+const BOOT_TIMEOUT_MS = 10000
+type Boot = { client: SupabaseLike | null; session: SupabaseSession | null; error: string | null }
+let bootPromise: Promise<Boot | null> | undefined
+/**
+ * Once per page load: finishes an OAuth return and reads the stored session, loading the library only if
+ * needed. A hung network gives up after 10 s and the game continues as a guest, with an error to show.
+ */
+function boot(): Promise<Boot | null> {
+  bootPromise ??= withTimeout((async (): Promise<Boot | null> => {
     const code = consumePendingCode()
     if (!code && !hasStoredSession()) return null
     const client = await loadSupabase()
@@ -60,13 +67,13 @@ function boot() {
     const error = code ? await exchangeCode(client, code) : null
     const { data } = await client.auth.getSession()
     return { client, session: data.session, error }
-  })().catch(() => null)
+  })(), BOOT_TIMEOUT_MS).catch((): Boot => ({ client: null, session: null, error: 'timeout' }))
   return bootPromise
 }
 
 /** Internal: lets the sync engine's owner (inside SaveProvider) report its engine and status upwards. */
-function CloudSync({ client, user, onEngine, onStatus }: {
-  client: SupabaseLike; user: AccountUser; onEngine: (e: SyncEngine | null) => void; onStatus: (s: SyncStatus) => void
+function CloudSync({ client, user, onEngine, onStatus, onReady }: {
+  client: SupabaseLike; user: AccountUser; onEngine: (e: SyncEngine | null) => void; onStatus: (s: SyncStatus) => void; onReady: (r: boolean) => void
 }) {
   const { store, applyRemote, subscribe, registerEngine } = useSaveInternal()
   useEffect(() => {
@@ -75,14 +82,19 @@ function CloudSync({ client, user, onEngine, onStatus }: {
     // Only the player's own changes are reported to the engine, never updates it applied itself.
     const offChange = subscribe(d => engine.notifyChanged(d))
     const offStatus = engine.onStatus(onStatus)
+    const offReady = engine.onReady(() => onReady(true))
     engine.start()
-    return () => { offChange(); offStatus(); engine.stop(); registerEngine(null); onEngine(null) }
-  }, [client, user.id, store, applyRemote, subscribe, registerEngine, onEngine, onStatus])
+    return () => { offChange(); offStatus(); offReady(); engine.stop(); registerEngine(null); onEngine(null); onReady(false) }
+  }, [client, user.id, store, applyRemote, subscribe, registerEngine, onEngine, onStatus, onReady])
   return null
 }
 
-/** Offers (once per guest save) to bring the guest's progress into the account; never merges without an answer. */
-function AttachGate({ user, guest }: { user: AccountUser; guest: ProgressStore }) {
+/**
+ * Offers (once per guest save and user) to bring the guest's progress into the account; never merges without an
+ * answer. Rendered only after the engine's first pull, so the merge starts from the server's save (a reset made
+ * on another device is already applied). The answer is remembered only once the attached progress is uploaded.
+ */
+function AttachGate({ user, guest, getEngine }: { user: AccountUser; guest: ProgressStore; getEngine: () => SyncEngine | null }) {
   const [, update] = useSave()
   const [offer, setOffer] = useState<SaveData | null>(null)
   useEffect(() => {
@@ -90,13 +102,15 @@ function AttachGate({ user, guest }: { user: AccountUser; guest: ProgressStore }
     setOffer(hasProgress(g) && ui.get(attachKey(user.id)) !== String(g.savedAt ?? 0) ? g : null)
   }, [guest, user.id])
   if (!offer) return null
-  const answer = (attach: boolean) => {
-    ui.set(attachKey(user.id), String(offer.savedAt ?? 0))
+  const remember = () => ui.set(attachKey(user.id), String(offer.savedAt ?? 0))
+  const attach = () => {
     // The guest save has its own reset generation; join it to the account's so the merge is not a wholesale pick.
-    if (attach) update(d => mergeSaves(d, { ...offer, resetGen: d.resetGen ?? 0 }))
+    update(d => mergeSaves(d, { ...offer, resetGen: d.resetGen ?? 0 }))
     setOffer(null)
+    void getEngine()?.flush().then(ok => { if (ok) remember() }) // not uploaded yet: ask again next time (merging again is harmless)
   }
-  return <AttachGuestDialog email={user.email} onAttach={() => answer(true)} onKeep={() => answer(false)} />
+  const keep = () => { remember(); setOffer(null) }
+  return <AttachGuestDialog email={user.email} onAttach={attach} onKeep={keep} />
 }
 
 export function AccountProvider({ store: guest = guestStore, children }: { store?: ProgressStore; children: ReactNode }) {
@@ -107,9 +121,12 @@ export function AccountProvider({ store: guest = guestStore, children }: { store
   const [status, setStatus] = useState<SyncStatus>('synced')
   const [busy, setBusy] = useState<Busy>(null)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [cloudReady, setCloudReady] = useState(false)
   const [syncRun, setSyncRun] = useState(0)
   const engine = useRef<SyncEngine | null>(null)
   const onEngine = useCallback((e: SyncEngine | null) => { engine.current = e }, [])
+  const getEngine = useCallback(() => engine.current, [])
 
   useEffect(() => {
     if (!supported) return
@@ -118,14 +135,16 @@ export function AccountProvider({ store: guest = guestStore, children }: { store
     void boot().then(r => {
       if (!live) return
       if (r) {
-        setClient(r.client)
-        setUser(toUser(r.session))
         if (r.error) setError('ההתחברות נכשלה, אפשר לנסות שוב')
-        const { data } = r.client.auth.onAuthStateChange((_e, s) => {
-          const next = toUser(s)
-          setUser(prev => (prev?.id === next?.id ? prev : next))
-        })
-        off = () => data.subscription.unsubscribe()
+        if (r.client) {
+          setClient(r.client)
+          setUser(toUser(r.session))
+          const { data } = r.client.auth.onAuthStateChange((_e, s) => {
+            const next = toUser(s)
+            setUser(prev => (prev?.id === next?.id ? prev : next))
+          })
+          off = () => data.subscription.unsubscribe()
+        }
       }
       setReady(true)
     })
@@ -133,7 +152,7 @@ export function AccountProvider({ store: guest = guestStore, children }: { store
   }, [supported])
 
   const signIn = useCallback(async () => {
-    setError(null); setBusy('signin')
+    setError(null); setNotice(null); setBusy('signin')
     try {
       const c = await loadSupabase()
       if (!c) throw new Error('not configured')
@@ -147,14 +166,16 @@ export function AccountProvider({ store: guest = guestStore, children }: { store
 
   const signOut = useCallback(async () => {
     if (!client) return
-    setError(null); setBusy('saving')
+    setError(null); setNotice(null); setBusy('saving')
     try {
-      await engine.current?.flush() // a pending reset or change is written before the account is left
+      const uploaded = (await engine.current?.flush()) ?? true // a pending reset or change is written before the account is left
       engine.current?.stop()
-      await client.auth.signOut()
+      await signOutOfBrowser(client) // local sign-out: works offline, never leaves the session behind
       setUser(null)
+      if (!uploaded) setNotice('ההתקדמות עוד לא הועלתה; היא תועלה בפעם הבאה שתתחבר כאן')
     } catch {
       setError('ההתנתקות נכשלה, אפשר לנסות שוב')
+      setSyncRun(n => n + 1) // the engine was stopped: start a new one
     } finally { setBusy(null) }
   }, [client])
 
@@ -173,15 +194,15 @@ export function AccountProvider({ store: guest = guestStore, children }: { store
   }, [client, user])
 
   const store = useMemo(() => (user ? new LocalProgressStore({ key: userSaveKey(user.id) }) : guest), [user, guest])
-  const api = useMemo<AccountApi>(() => ({ supported, user, status, busy, error, signIn, signOut, deleteAccount }),
-    [supported, user, status, busy, error, signIn, signOut, deleteAccount])
+  const api = useMemo<AccountApi>(() => ({ supported, user, status, busy, error, notice, signIn, signOut, deleteAccount }),
+    [supported, user, status, busy, error, notice, signIn, signOut, deleteAccount])
 
   if (!ready) return <p className="muted" role="status" style={{ textAlign: 'center', padding: '48px 16px' }}>טוען…</p>
   return (
     <AccountContext.Provider value={api}>
       <SaveProvider key={user?.id ?? 'guest'} store={store}>
-        {user && client && <CloudSync key={syncRun} client={client} user={user} onEngine={onEngine} onStatus={setStatus} />}
-        {user && <AttachGate user={user} guest={guest} />}
+        {user && client && <CloudSync key={syncRun} client={client} user={user} onEngine={onEngine} onStatus={setStatus} onReady={setCloudReady} />}
+        {user && cloudReady && <AttachGate user={user} guest={guest} getEngine={getEngine} />}
         {children}
       </SaveProvider>
     </AccountContext.Provider>

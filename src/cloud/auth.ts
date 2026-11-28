@@ -60,17 +60,38 @@ export async function exchangeCode(client: SupabaseLike, code: string): Promise<
   return error?.message ?? null
 }
 
-export async function signOut(client: SupabaseLike): Promise<void> {
-  await client.auth.signOut()
+interface KeyStore { length: number; key(i: number): string | null; removeItem(k: string): void }
+
+/**
+ * Ends this browser's session, even when offline: asks for a local-scope sign-out (no network needed) and, if
+ * the library still reports an error, removes the stored session itself. Never throws; after it, a reload
+ * cannot bring the account back.
+ */
+export async function signOut(client: SupabaseLike, storage: KeyStore = localStorage): Promise<void> {
+  try { await client.auth.signOut({ scope: 'local' }) } catch { /* fall through to the hard removal */ }
+  tryDo(() => {
+    const keys: string[] = []
+    for (let i = 0; i < storage.length; i++) { const k = storage.key(i); if (k && /^sb-.+-auth-token(-code-verifier)?$/.test(k)) keys.push(k) }
+    keys.forEach(k => storage.removeItem(k))
+  })
+}
+
+/** Rejects if `p` takes longer than `ms` (so a hung network can't keep the game on a loading screen). */
+export function withTimeout<T>(p: PromiseLike<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('timeout')), ms)
+    p.then(v => { clearTimeout(t); resolve(v) }, e => { clearTimeout(t); reject(e) })
+  })
 }
 
 /**
  * Deletes the account through the edge function (which verifies the caller's JWT), then removes this user's
- * local save (the guest's save is untouched) and signs out. Throws if the server refused.
+ * local save (the guest's save is untouched) and ends the session. Throws only if the server refused; once the
+ * server has deleted the account, a sign-out problem is not an error.
  */
-export async function deleteAccount(client: SupabaseLike, uid: string, storage: StoreLike = localStorage): Promise<void> {
+export async function deleteAccount(client: SupabaseLike, uid: string, storage: StoreLike & KeyStore = localStorage): Promise<void> {
   const { error } = await client.functions.invoke('delete-account')
   if (error) throw new Error(error.message)
   tryDo(() => { storage.removeItem(userSaveKey(uid)); storage.removeItem(`${userSaveKey(uid)}-backup`) })
-  await client.auth.signOut()
+  await signOut(client, storage)
 }

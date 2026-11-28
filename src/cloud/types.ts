@@ -21,7 +21,8 @@ export interface SupabaseLike {
     onAuthStateChange(cb: (event: string, session: SupabaseSession | null) => void): { data: { subscription: { unsubscribe(): void } } }
     signInWithOAuth(args: { provider: 'google'; options?: { redirectTo?: string } }): PromiseLike<{ error: DbError | null }>
     exchangeCodeForSession(code: string): PromiseLike<{ error: DbError | null }>
-    signOut(): PromiseLike<{ error: DbError | null }>
+    /** `scope: 'local'` ends this browser's session without needing the network. */
+    signOut(opts?: { scope?: 'global' | 'local' | 'others' }): PromiseLike<{ error: DbError | null }>
   }
   from(table: 'saves'): SavesTable
   functions: { invoke(name: string): PromiseLike<{ error: DbError | null }> }

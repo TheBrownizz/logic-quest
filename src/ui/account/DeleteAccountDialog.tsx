@@ -8,13 +8,14 @@ export const DELETE_WORD = 'מחק'
 export function DeleteAccountDialog({ onClose }: { onClose: () => void }) {
   const { deleteAccount, busy, error } = useAccount()
   const [typed, setTyped] = useState('')
-  const panel = useDialog(onClose)
+  const working = busy !== null
+  const panel = useDialog(() => { if (!working) onClose() }) // no way out while something is being written or deleted
   const go = async () => {
     try { await deleteAccount(); onClose() } catch { /* the error is shown below */ }
   }
   // In a portal: the header's backdrop-filter would otherwise become the containing block of the fixed overlay.
   return createPortal(
-    <div className="overlay" onClick={busy ? undefined : onClose}>
+    <div className="overlay" onClick={working ? undefined : onClose}>
       <div className="panel" ref={panel} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="del-title" data-testid="delete-dialog" onClick={e => e.stopPropagation()}>
         <h2 id="del-title">מחיקת חשבון</h2>
         <p>הפעולה מוחקת את החשבון ואת ההתקדמות ששמורה בענן. ההתקדמות של האורח במכשיר הזה לא נפגעת. אי אפשר לבטל.</p>
@@ -24,10 +25,10 @@ export function DeleteAccountDialog({ onClose }: { onClose: () => void }) {
         </label>
         {error && <p role="alert" className="err">{error}</p>}
         <div className="row">
-          <button className="btn danger" disabled={typed.trim() !== DELETE_WORD || busy === 'deleting'} onClick={go}>
+          <button className="btn danger" disabled={typed.trim() !== DELETE_WORD || working} onClick={go}>
             {busy === 'deleting' ? 'מוחק…' : 'מחיקה לצמיתות'}
           </button>
-          <button className="btn ghost" onClick={onClose} disabled={busy === 'deleting'}>ביטול</button>
+          <button className="btn ghost" onClick={onClose} disabled={working}>ביטול</button>
         </div>
       </div>
     </div>,

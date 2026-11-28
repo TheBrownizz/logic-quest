@@ -12,7 +12,7 @@ export default defineConfig({
   testDir: 'tests/e2e',
   webServer: [
     {
-      command: `npm run build && npx vite preview --port ${port} --strictPort`,
+      command: `VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY= VITE_E2E_FAKE= npm run build && npx vite preview --port ${port} --strictPort`,
       url: `http://localhost:${port}`,
       reuseExistingServer: false,
     },

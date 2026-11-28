@@ -402,14 +402,14 @@ describe('review hardening', () => {
     const a = device(fake)
     a.engine.start(); await flush()
     const applied = a.applied, rev = fake.rows.get(U)!.rev
-    a.engine.overwrite(solved('fresh'))
+    a.engine.overwrite({ ...solved('fresh'), resetGen: 1 })
     await flush()
     expect(roomsOf(fake.rows.get(U)!.data)).toEqual(['fresh'])
     expect(fake.rows.get(U)!.rev).toBe(rev + 1)
     expect(a.applied).toBe(applied)
     expect(a.engine.status).toBe('synced')
     // the provider also resets the game's own save; later pulls then don't resurrect the old rooms
-    a.save = solved('fresh')
+    a.save = { ...solved('fresh'), resetGen: 1 }
     a.engine.stop(); a.engine.start(); await flush()
     expect(roomsOf(fake.rows.get(U)!.data)).toEqual(['fresh'])
     a.engine.stop()
@@ -420,7 +420,7 @@ describe('review hardening', () => {
     const a = device(fake)
     a.engine.start(); await flush()
     fake.beforeUpdate = () => { fake.beforeUpdate = null; fake.concurrentWrite(U, v2) }
-    a.engine.overwrite(solved('fresh'))
+    a.engine.overwrite({ ...solved('fresh'), resetGen: 1 })
     await flush()
     expect(roomsOf(fake.rows.get(U)!.data)).toEqual(['fresh'])
     expect(a.engine.status).toBe('synced')
@@ -435,7 +435,7 @@ describe('review hardening', () => {
     let first = true
     fake.gates.select = () => { if (!first) return Promise.resolve(); first = false; return g.promise }
     a.engine.start(); await flush()
-    a.engine.overwrite(solved('fresh'))
+    a.engine.overwrite({ ...solved('fresh'), resetGen: 1 })
     g.release()
     await vi.advanceTimersByTimeAsync(2500)
     expect(roomsOf(fake.rows.get(U)!.data)).toEqual(['fresh'])
@@ -454,7 +454,7 @@ describe('review hardening', () => {
     await vi.advanceTimersByTimeAsync(2000) // update in flight
     fake.gates.update = undefined
     fake.concurrentWrite(U, solved('old', 'other')) // so the in-flight update loses the CAS
-    const fresh = solved('fresh')
+    const fresh = { ...solved('fresh'), resetGen: 1 }
     a.save = fresh // the provider resets the game's own save too
     a.engine.overwrite(fresh)
     const applied = a.applied
@@ -475,10 +475,11 @@ describe('review hardening', () => {
     a.engine.start(); await vi.advanceTimersByTimeAsync(100)
     const g = hold()
     fake.gates.update = () => g.promise
-    a.engine.overwrite(solved('fresh'))
+    a.save = { ...solved('fresh'), resetGen: 1 } // the provider commits the reset locally first
+    a.engine.overwrite(a.save)
     await vi.advanceTimersByTimeAsync(10) // reset update in flight
     fake.gates.update = undefined
-    a.change(x => mergeSaves(x, solved('after')))
+    a.change(x => mergeSaves(x, { ...solved('after'), resetGen: 1 }))
     g.release()
     await vi.advanceTimersByTimeAsync(5000)
     expect(roomsOf(fake.rows.get(U)!.data)).toEqual(['after', 'fresh'])
@@ -520,6 +521,57 @@ describe('review hardening', () => {
     a.engine.stop(); a.engine.start(); await vi.advanceTimersByTimeAsync(2500)
     expect(roomsOf(a.save)).toEqual([])
     a.engine.stop(); b.engine.stop()
+  })
+
+  it('I1: a reset from a device with a stale generation still outranks the server and reaches the others', async () => {
+    const fake = new FakeSupabase()
+    const a = device(fake, solved('old')), b = device(fake, solved('old'))
+    a.engine.start(); b.engine.start(); await vi.advanceTimersByTimeAsync(2500)
+    b.engine.stop() // B goes offline with generation 0
+    a.save = { ...emptySave(), resetGen: 1 }; a.engine.overwrite(a.save); await vi.advanceTimersByTimeAsync(300)
+    a.save = { ...emptySave(), resetGen: 2 }; a.engine.overwrite(a.save); await vi.advanceTimersByTimeAsync(300)
+    expect((fake.rows.get(U)!.data as SaveData).resetGen).toBe(2)
+    // B comes back and resets from its stale state (the provider would write generation 0 + 1 = 1)
+    b.save = { ...solved('b-fresh'), resetGen: 1 }
+    b.engine.start(); b.engine.overwrite(b.save)
+    await vi.advanceTimersByTimeAsync(500)
+    const server = fake.rows.get(U)!.data as SaveData
+    expect(server.resetGen).toBe(3)
+    expect(roomsOf(server)).toEqual(['b-fresh'])
+    expect(b.save.resetGen).toBe(3) // B carries the generation it wrote
+    a.engine.stop(); a.engine.start(); await vi.advanceTimersByTimeAsync(500)
+    expect(roomsOf(a.save)).toEqual(['b-fresh'])
+    expect(a.save.resetGen).toBe(3)
+    a.engine.stop(); b.engine.stop()
+  })
+
+  it('I2: onReady fires only after the first successful pull', async () => {
+    const fake = new FakeSupabase()
+    const a = device(fake)
+    let ready = 0
+    a.engine.onReady(() => ready++)
+    fake.failures.push({ message: 'net' })
+    a.engine.start(); await vi.advanceTimersByTimeAsync(100)
+    expect(a.engine.ready).toBe(false)
+    expect(ready).toBe(0)
+    await vi.advanceTimersByTimeAsync(5000) // backoff retry succeeds
+    expect(a.engine.ready).toBe(true)
+    expect(ready).toBe(1)
+    let late = 0
+    a.engine.onReady(() => late++) // already ready: called at once
+    expect(late).toBe(1)
+    a.engine.stop()
+  })
+
+  it('I2: onReady never fires for an unreadable remote', async () => {
+    const fake = new FakeSupabase()
+    fake.concurrentWrite(U, v2)
+    const a = device(fake)
+    let ready = 0
+    a.engine.onReady(() => ready++)
+    a.engine.start(); await vi.advanceTimersByTimeAsync(20000)
+    expect(ready).toBe(0)
+    a.engine.stop()
   })
 
   it('A3: hiding the tab flushes a pending push at once', async () => {
