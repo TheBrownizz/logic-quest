@@ -8,7 +8,8 @@ import type { Netlist, SchGateKind, SchPart, SchWire } from './netlist'
 export interface Pt { x: number; y: number }
 export type Prim =
   | { t: 'path'; d: string; cls: 'body' | 'line' | 'frame' | 'clock' | 'stub' }
-  | { t: 'wire'; net: string; points: Pt[] }
+  /** `hops`: points on this wire's horizontal runs where another net's vertical run crosses (drawn as a small arc). */
+  | { t: 'wire'; net: string; points: Pt[]; hops: Pt[] }
   | { t: 'circle'; cx: number; cy: number; r: number; cls: 'bubble' | 'dot' | 'term' }
   | { t: 'text'; x: number; y: number; text: string; cls: 'label' | 'pin' | 'name'; anchor: 'start' | 'middle' | 'end' }
 export interface SchLayout {
@@ -45,6 +46,24 @@ const FF_W = 36
 const FF_H = 48
 
 const r1 = (v: number) => Math.round(v * 100) / 100
+/** Radius of a wire hop. */
+export const HOP = 5
+
+/** The SVG path of a wire: its polyline, with a small arc over each hop on a horizontal run. */
+export function wirePath(points: Pt[], hops: Pt[]): string {
+  let d = `M${points[0].x},${points[0].y}`
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1], b = points[i]
+    if (a.y === b.y) {
+      const dir = b.x > a.x ? 1 : -1
+      const on = hops.filter(h => h.y === a.y && (h.x - a.x) * dir > 0 && (b.x - h.x) * dir > 0).sort((p, q) => (p.x - q.x) * dir)
+      for (const h of on) d += ` H${h.x - dir * HOP} A${HOP} ${HOP} 0 0 ${dir > 0 ? 1 : 0} ${h.x + dir * HOP},${h.y}`
+    }
+    d += a.y === b.y ? ` H${b.x}` : ` V${b.y}`
+  }
+  return d
+}
+
 /** Every point an absolute path (M, L, Q, H, V, A, Z, as written here) passes through or bends at. */
 export function pathPoints(d: string): Pt[] {
   const tokens = d.match(/[MLQHVAZ]|-?\d*\.?\d+/g) ?? []
@@ -257,7 +276,7 @@ export function layoutSchematic(n: Netlist): SchLayout {
   const paths = new Map<string, Pt[][]>()
   for (const { w, a, b } of resolved) {
     const S = a.pt, D = b.pt
-    const trunk = S.x + 16 + 8 * (lane.get(a.key) ?? 0)
+    const trunk = S.x + 16 + 12 * (lane.get(a.key) ?? 0)
     let pts: Pt[]
     if (D.x - S.x >= 30) {
       const x = w.viaX !== undefined ? w.viaX * CW : Math.min(trunk, D.x - 12)
@@ -269,10 +288,25 @@ export function layoutSchematic(n: Netlist): SchLayout {
       pts = [S, { x: trunk, y: S.y }, { x: trunk, y }, { x: x2, y }, { x: x2, y: D.y }, D]
     }
     pts = simplify(pts)
-    prims.push({ t: 'wire', net: a.key, points: pts })
+    prims.push({ t: 'wire', net: a.key, points: pts, hops: [] })
     paths.set(a.key, [...(paths.get(a.key) ?? []), pts])
   }
   for (const ps of paths.values()) for (const j of junctions(ps)) prims.push({ t: 'circle', cx: j.x, cy: j.y, r: 3.5, cls: 'dot' })
+  // crossings of different nets: the horizontal run hops over the vertical one
+  const ws = prims.filter((p): p is Extract<Prim, { t: 'wire' }> => p.t === 'wire')
+  const segs = (w: Extract<Prim, { t: 'wire' }>) => w.points.slice(1).map((p, i) => [w.points[i], p] as const)
+  for (const w of ws) for (const [a, b] of segs(w)) {
+    if (a.y !== b.y) continue
+    const x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x)
+    for (const o of ws) {
+      if (o.net === w.net) continue
+      for (const [c, d] of segs(o)) {
+        if (c.x !== d.x) continue
+        const y0 = Math.min(c.y, d.y), y1 = Math.max(c.y, d.y)
+        if (c.x > x0 + HOP && c.x < x1 - HOP && a.y > y0 && a.y < y1 && !w.hops.some(h => h.x === c.x && h.y === a.y)) w.hops.push({ x: c.x, y: a.y })
+      }
+    }
+  }
 
   if (n.frame) {
     const x0 = (n.frame.from[0] - 0.5) * CW, x1 = (n.frame.to[0] + 0.5) * CW

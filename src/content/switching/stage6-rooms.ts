@@ -39,7 +39,7 @@ export const stage6Rooms: Room[] = [
           { id: 'Qn', kind: 'out', label: "Q'", at: [4.4, 5 / 3] },
         ],
         wires: [
-          { from: 'D', to: 'inv' }, { from: 'inv', to: 'g1.0' }, { from: 'E', to: 'g1.1' }, { from: 'E', to: 'g2.0' }, { from: 'D', to: 'g2.1' },
+          { from: 'D', to: 'inv' }, { from: 'inv', to: 'g1.0' }, { from: 'E', to: 'g1.1', viaX: 0.45 }, { from: 'E', to: 'g2.0', viaX: 0.45 }, { from: 'D', to: 'g2.1' },
           { from: 'g1', to: 'L.a' }, { from: 'g2', to: 'L.b' }, { from: 'L.Q', to: 'Q' }, { from: 'L.Qn', to: 'Qn' },
         ],
         frame: { from: [0.75, -0.3], to: [3.95, 2.3] },

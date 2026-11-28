@@ -3,13 +3,14 @@
 .schematic { color: var(--text); }
 .sch-body { fill: var(--surface-hi); stroke: var(--text); stroke-width: 2.2; stroke-linejoin: round; }
 .sch-stub, .sch-line, .sch-clock { fill: none; stroke: var(--text); stroke-width: 2; stroke-linejoin: round; }
-.sch-wire { fill: none; stroke: var(--muted); stroke-width: 2; stroke-linejoin: round; }
+.schematic-scroll { overflow-x: auto; max-width: 100%; }
+.sch-wire { fill: none; stroke: color-mix(in srgb, var(--text) 70%, var(--bg)); stroke-width: 2; stroke-linejoin: round; }
 .sch-frame { fill: none; stroke: var(--zero); stroke-width: 1.5; stroke-dasharray: 6 5; }
 .sch-bubble { fill: var(--surface); stroke: var(--text); stroke-width: 2; }
 .sch-dot { fill: var(--text); }
 .sch-term { fill: var(--amber); }
-.sch-label { font-family: var(--font-mono); font-size: 15px; font-weight: 700; fill: var(--amber); }
-.sch-pin { font-family: var(--font-mono); font-size: 12px; fill: var(--text); }
+.sch-label { font-family: var(--font-mono); font-size: 18px; font-weight: 700; fill: var(--amber); }
+.sch-pin { font-family: var(--font-mono); font-size: 14px; fill: var(--text); }
 .sch-name { font-family: var(--font-mono); font-size: 11px; fill: var(--muted); }
 
 .sd-edge path { fill: none; stroke: var(--muted); stroke-width: 2; }

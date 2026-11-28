@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { layoutSchematic, pathPoints, type Prim, type Pt } from '../../src/ui/schematic/geometry'
+import { HOP, layoutSchematic, pathPoints, wirePath, type Prim, type Pt } from '../../src/ui/schematic/geometry'
 import type { Netlist } from '../../src/ui/schematic/netlist'
 
 const wires = (l: ReturnType<typeof layoutSchematic>) => l.prims.filter((p): p is Extract<Prim, { t: 'wire' }> => p.t === 'wire')
@@ -47,6 +47,17 @@ describe('layoutSchematic', () => {
     // A and B each fan out to two gates: one dot each (plus the latch's two feedback dots)
     const dots = circles(l, 'dot')
     expect(dots.length).toBe(4)
+  })
+
+  it('M4: where two nets cross, the horizontal run hops over the vertical one (no dot)', () => {
+    const l = layoutSchematic(dLatch)
+    const hops = wires(l).flatMap(w => w.hops.map(h => ({ w, h })))
+    expect(hops.length).toBeGreaterThan(0)
+    for (const { w, h } of hops) {
+      expect(w.points.some((p, i) => i > 0 && p.y === h.y && w.points[i - 1].y === h.y)).toBe(true)
+      expect(circles(l, 'dot').some(d => d.cx === h.x && d.cy === h.y)).toBe(false)
+    }
+    expect(wirePath([{ x: 0, y: 0 }, { x: 40, y: 0 }, { x: 40, y: 20 }], [{ x: 20, y: 0 }])).toBe(`M0,0 H${20 - HOP} A${HOP} ${HOP} 0 0 1 ${20 + HOP},0 H40 V20`)
   })
 
   it('the cross-coupled latch draws two gates, the X and outputs Q above Qn', () => {
