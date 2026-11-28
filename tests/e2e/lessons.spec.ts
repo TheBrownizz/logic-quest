@@ -235,3 +235,24 @@ test('the lesson at 400px: every step fits with no horizontal scroll', async ({ 
   await playLesson(page, lesson, { each: () => noHorizontalScroll(page) })
   await noHorizontalScroll(page)
 })
+
+test('editing the URL to another step of the open lesson jumps there; normal navigation does not remount', async ({ page }) => {
+  const save = emptySave()
+  save.lessons = { [lesson.id]: { stepId: lesson.steps[lesson.steps.length - 1].id, done: true } }
+  await seed(page, save)
+  await page.goto(`/#/lesson/${lesson.id}/${lesson.steps[0].id}`)
+  await expectStep(page, lesson.steps[0])
+  // "המשך" moves on inside the same mounted screen
+  await page.getByTestId('lesson').evaluate(el => { (el as HTMLElement & { tag?: number }).tag = 7 })
+  await page.getByTestId('lesson-next').click()
+  await expectStep(page, lesson.steps[1])
+  expect(await page.getByTestId('lesson').evaluate(el => (el as HTMLElement & { tag?: number }).tag)).toBe(7)
+  // a manual change of the hash to another step of the same lesson takes effect, with no reload
+  await page.evaluate(h => { window.location.hash = h }, `#/lesson/${lesson.id}/${lesson.steps[3].id}`)
+  await expectStep(page, lesson.steps[3])
+  await page.evaluate(h => { window.location.hash = h }, `#/lesson/${lesson.id}/${lesson.steps[0].id}`)
+  await expectStep(page, lesson.steps[0])
+  // an unknown step id is ignored
+  await page.evaluate(h => { window.location.hash = h }, `#/lesson/${lesson.id}/no-such-step`)
+  await expectStep(page, lesson.steps[0])
+})

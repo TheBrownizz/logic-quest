@@ -5,7 +5,7 @@ import type { Stage, World } from '../../content/types'
 import { lessonDone, quizCooldownLeft, recordQuizFail, recordQuizPass, recordStep, stageRoomsOpen } from '../../game/lessonRules'
 import { isStageUnlocked } from '../../game/rules'
 import { LockNote } from '../LockNote'
-import { hasQueryFlag, hrefs, queryParam } from '../router'
+import { hasQueryFlag, hrefs, parseHash, queryParam } from '../router'
 import { useSave } from '../save'
 import { NotFound } from '../StageScreen'
 import { worlds } from '../worlds'
@@ -86,6 +86,21 @@ function Player({ lesson, world, stage, stepId }: { lesson: Lesson; world: World
     const h = hrefs.lesson(lesson.id, step.id)
     if (window.location.hash !== h) window.history.replaceState(null, '', h)
   }, [step.id, mode])
+
+  // The player writes its own step into the URL with replaceState, which fires no hashchange. So a hashchange to a
+  // step of this same lesson is a manual edit (or a link): jump there, if the player may reach it. The lesson
+  // route is not keyed by step, so normal "המשך" navigation never remounts and keeps its in-memory state.
+  useEffect(() => {
+    const on = () => {
+      const r = parseHash(window.location.hash)
+      if (r.name !== 'lesson' || r.lessonId !== lesson.id || r.stepId === undefined) return
+      const j = lesson.steps.findIndex(st => st.id === r.stepId)
+      if (j < 0) return
+      dispatch({ type: 'goto', index: j })
+    }
+    window.addEventListener('hashchange', on)
+    return () => window.removeEventListener('hashchange', on)
+  }, [lesson])
 
   const complete = useCallback(() => dispatch({ type: 'complete', index: i }), [i])
   // React re-renders between the two clicks of a double click, so the second click would come from the new step

@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { rememberOpenStages } from '../game/lessonRules'
 import type { ProgressStore, SaveData } from '../game/progress'
 import { LabRoom } from './lab/LabRoom'
-import { LessonScreen } from './lessons/LessonScreen'
 import { MapScreen } from './MapScreen'
 import { Collection } from './run/Collection'
 import { RunScreen } from './run/RunScreen'
@@ -13,6 +12,13 @@ import { SaveProvider, useSave } from './save'
 import { worlds } from './worlds'
 import './theme.css'
 
+/** The lesson player pulls in every step view and widget, so it loads on first use (the catalog stays eager). */
+const LessonScreen = lazy(() => import('./lessons/LessonScreen').then(m => ({ default: m.LessonScreen })))
+
+function LessonFallback() {
+  return <p className="muted" role="status" style={{ textAlign: 'center', padding: '48px 16px' }}>טוען את השיעור…</p>
+}
+
 function Screen() {
   const r = useRoute()
   switch (r.name) {
@@ -21,7 +27,7 @@ function Screen() {
     case 'stage': return <StageScreen worldId={r.worldId} stageId={r.stageId} />
     case 'room': return <LabRoom key={r.roomId} roomId={r.roomId} />
     case 'run': return <RunScreen key={r.stageId} stageId={r.stageId} />
-    case 'lesson': return <LessonScreen key={r.lessonId} lessonId={r.lessonId} stepId={r.stepId} />
+    case 'lesson': return <Suspense fallback={<LessonFallback />}><LessonScreen key={r.lessonId} lessonId={r.lessonId} stepId={r.stepId} /></Suspense>
     case 'collection': return <Collection />
     default: return <NotFound />
   }
