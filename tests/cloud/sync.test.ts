@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { SyncEngine } from '../../src/cloud/sync'
-import { getSupabase } from '../../src/cloud/client'
+import { getSupabase, isCloudConfigured, loadSupabase } from '../../src/cloud/client'
 import { FakeSupabase } from './fakeSupabase'
 import { emptySave, LocalProgressStore, type SaveData } from '../../src/game/progress'
 import { mergeSaves } from '../../src/game/merge'
@@ -32,15 +32,35 @@ const roomsOf = (d: unknown) => Object.keys((d as SaveData).rooms).sort()
 beforeEach(() => { vi.useFakeTimers() })
 afterEach(() => { vi.useRealTimers() })
 
-describe('getSupabase', () => {
-  it('is null without env vars and without a fake', () => {
+describe('client', () => {
+  afterEach(() => { vi.unstubAllEnvs(); delete (globalThis as Record<string, unknown>).__LQ_FAKE_SUPABASE__ })
+  it('is not configured, and loads nothing, without env vars and without a fake', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', ''); vi.stubEnv('VITE_SUPABASE_ANON_KEY', '')
+    expect(isCloudConfigured()).toBe(false)
     expect(getSupabase()).toBeNull()
+    expect(await loadSupabase()).toBeNull()
   })
-  it('returns the injected fake in test mode', () => {
+  it('is configured when both env vars are set', () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://x.supabase.co'); vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon')
+    expect(isCloudConfigured()).toBe(true)
+  })
+  it('one env var alone is not enough', () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://x.supabase.co'); vi.stubEnv('VITE_SUPABASE_ANON_KEY', '')
+    expect(isCloudConfigured()).toBe(false)
+  })
+  it('uses the injected fake in test mode', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', ''); vi.stubEnv('VITE_SUPABASE_ANON_KEY', '')
     const f = new FakeSupabase().client()
     ;(globalThis as Record<string, unknown>).__LQ_FAKE_SUPABASE__ = f
+    expect(isCloudConfigured()).toBe(true)
     expect(getSupabase()).toBe(f)
-    delete (globalThis as Record<string, unknown>).__LQ_FAKE_SUPABASE__
+    expect(await loadSupabase()).toBe(f)
+  })
+  it('ignores the injected fake outside test mode and E2E mode', () => {
+    vi.stubEnv('MODE', 'production'); vi.stubEnv('VITE_E2E_FAKE', ''); vi.stubEnv('VITE_SUPABASE_URL', ''); vi.stubEnv('VITE_SUPABASE_ANON_KEY', '')
+    ;(globalThis as Record<string, unknown>).__LQ_FAKE_SUPABASE__ = new FakeSupabase().client()
+    expect(isCloudConfigured()).toBe(false)
+    expect(getSupabase()).toBeNull()
   })
 })
 
@@ -86,17 +106,24 @@ describe('SyncEngine', () => {
     a.engine.stop()
   })
 
-  it('Review Focus 1: two devices push concurrently, both devices\' solved rooms survive (CAS retry + merge)', async () => {
+  it('Review Focus 1: two devices push concurrently; one update loses the CAS, then both rooms survive on both devices', async () => {
     const fake = new FakeSupabase()
     const a = device(fake), b = device(fake)
     a.engine.start(); b.engine.start(); await flush()
+    const before = fake.calls.update
     a.change(d => mergeSaves(d, solved('A1')))
     b.change(d => mergeSaves(d, solved('B1')))
-    // b's write lands between a's pull and a's update: make a lose the CAS once
+    const g = hold() // both devices read the same rev before either writes
+    fake.gates.select = () => g.promise
     await vi.advanceTimersByTimeAsync(2000)
-    await vi.advanceTimersByTimeAsync(2000)
+    fake.gates.select = undefined
+    g.release()
+    await vi.advanceTimersByTimeAsync(100)
+    expect(fake.calls.update - before).toBe(3) // a ok, b matches 0 rows, b retries after merging
     expect(roomsOf(fake.rows.get(U)!.data)).toEqual(['A1', 'B1'])
     expect(roomsOf(b.save)).toEqual(['A1', 'B1'])
+    a.engine.stop(); a.engine.start(); await flush() // a's next pull
+    expect(roomsOf(a.save)).toEqual(['A1', 'B1'])
     a.engine.stop(); b.engine.stop()
   })
 
@@ -208,5 +235,227 @@ describe('parseSave strictness', () => {
     const { parseSave } = await import('../../src/game/progress')
     expect(parseSave({ version: 1, bestRun: { s: null } })).toBeNull()
     expect(parseSave(JSON.parse('{"version":1,"bestRun":{"s":1e999}}'))).toBeNull()
+  })
+})
+
+function hold() {
+  let release!: () => void
+  const promise = new Promise<void>(r => { release = r })
+  return { promise, release }
+}
+/** A document stub whose listeners the test can fire. */
+function fakeDoc(state: 'visible' | 'hidden' = 'visible') {
+  const l: Record<string, () => void> = {}
+  const doc = { visibilityState: state, addEventListener: (e: string, f: () => void) => { l[e] = f }, removeEventListener: (e: string) => { delete l[e] } }
+  vi.stubGlobal('document', doc)
+  return { doc, fire: () => l.visibilitychange?.(), has: () => !!l.visibilitychange }
+}
+const v2 = { version: 2, rooms: 'weird' }
+
+describe('review hardening', () => {
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  it('I1: a no-op pull does not push, even though jsonb reorders keys', async () => {
+    const fake = new FakeSupabase()
+    const d = fakeDoc()
+    const a = device(fake, { ...solved('r1'), chips: { HA: { name: 'HA', inputs: ['A'], outputs: ['Q'], circuit: { nodes: [{ id: 'a', kind: 'IN', label: 'A', x: 0, y: 0 }], wires: [] } } } })
+    a.engine.start(); await vi.advanceTimersByTimeAsync(2500)
+    const u = fake.calls.update
+    for (let i = 0; i < 3; i++) { d.fire(); await vi.advanceTimersByTimeAsync(2500) }
+    expect(fake.calls.update).toBe(u)
+    expect(a.engine.status).toBe('synced')
+    a.engine.stop()
+  })
+
+  it('M3: two devices racing to create the first row lose nothing', async () => {
+    const fake = new FakeSupabase()
+    const a = device(fake, solved('A1')), b = device(fake, solved('B1'))
+    a.engine.start(); b.engine.start()
+    await vi.advanceTimersByTimeAsync(2500)
+    expect(roomsOf(fake.rows.get(U)!.data)).toEqual(['A1', 'B1'])
+    expect(roomsOf(b.save)).toEqual(['A1', 'B1'])
+    a.engine.stop(); a.engine.start(); await flush()
+    expect(roomsOf(a.save)).toEqual(['A1', 'B1'])
+    a.engine.stop(); b.engine.stop()
+  })
+
+  it('M3: a local change during an in-flight update is pushed afterwards', async () => {
+    const fake = new FakeSupabase()
+    const a = device(fake)
+    a.engine.start(); await flush()
+    const g = hold()
+    fake.gates.update = () => g.promise
+    a.change(d => mergeSaves(d, solved('X')))
+    await vi.advanceTimersByTimeAsync(2000) // update in flight
+    a.change(d => mergeSaves(d, solved('Y')))
+    fake.gates.update = undefined
+    g.release()
+    await vi.advanceTimersByTimeAsync(2500)
+    expect(roomsOf(fake.rows.get(U)!.data)).toEqual(['X', 'Y'])
+    expect(a.engine.status).toBe('synced')
+    a.engine.stop()
+  })
+
+  it('M3: a local change during an in-flight pull is kept and pushed', async () => {
+    const fake = new FakeSupabase()
+    fake.concurrentWrite(U, solved('remote'))
+    const a = device(fake, solved('L0'))
+    const g = hold()
+    let first = true
+    fake.gates.select = () => { if (!first) return Promise.resolve(); first = false; return g.promise }
+    a.engine.start(); await flush()
+    a.change(d => mergeSaves(d, solved('Y')))
+    g.release()
+    await vi.advanceTimersByTimeAsync(4500)
+    expect(roomsOf(a.save)).toEqual(['L0', 'Y', 'remote'])
+    expect(roomsOf(fake.rows.get(U)!.data)).toEqual(['L0', 'Y', 'remote'])
+    a.engine.stop()
+  })
+
+  it('M3: unreadable remote reached through the CAS-retry pull: no further update, no apply, row untouched', async () => {
+    const fake = new FakeSupabase()
+    const a = device(fake)
+    a.engine.start(); await vi.advanceTimersByTimeAsync(100)
+    const u = fake.calls.update
+    let applied = -1
+    fake.beforeUpdate = () => { fake.beforeUpdate = null; applied = a.applied; fake.concurrentWrite(U, v2) }
+    a.change(d => mergeSaves(d, solved('r1')))
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(a.engine.status).toBe('offline')
+    expect(fake.calls.update).toBe(u + 1)
+    expect(a.applied).toBe(applied)
+    await vi.advanceTimersByTimeAsync(120000)
+    expect(fake.calls.update).toBe(u + 1)
+    expect(fake.rows.get(U)!.data).toEqual(v2)
+    a.engine.stop()
+  })
+
+  it('M3: unreadable remote reached through visibilitychange: no apply, no push, row untouched', async () => {
+    const fake = new FakeSupabase()
+    const d = fakeDoc()
+    const a = device(fake)
+    a.engine.start(); await flush()
+    fake.concurrentWrite(U, v2)
+    const applied = a.applied, u = fake.calls.update
+    d.fire(); await flush()
+    expect(a.engine.status).toBe('offline')
+    a.change(x => mergeSaves(x, solved('r1')))
+    await vi.advanceTimersByTimeAsync(130000)
+    expect(a.applied).toBe(applied)
+    expect(fake.calls.update).toBe(u)
+    expect(fake.rows.get(U)!.data).toEqual(v2)
+    a.engine.stop()
+  })
+
+  it('M3: stop() while an update is in flight leaves no timers, no further calls', async () => {
+    const fake = new FakeSupabase()
+    const a = device(fake)
+    a.engine.start(); await flush()
+    const g = hold()
+    fake.gates.update = () => g.promise
+    a.change(d => mergeSaves(d, solved('r1')))
+    await vi.advanceTimersByTimeAsync(2000)
+    a.engine.stop()
+    g.release()
+    await vi.advanceTimersByTimeAsync(130000)
+    expect(vi.getTimerCount()).toBe(0)
+    expect(fake.calls.update).toBe(1)
+  })
+
+  it('M3: stop() while a pull is in flight applies nothing', async () => {
+    const fake = new FakeSupabase()
+    fake.concurrentWrite(U, solved('remote'))
+    const a = device(fake)
+    const g = hold()
+    fake.gates.select = () => g.promise
+    a.engine.start(); await flush()
+    a.engine.stop()
+    g.release()
+    await vi.advanceTimersByTimeAsync(130000)
+    expect(a.applied).toBe(0)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('M4: while offline, local changes wait for the backoff; success clears the retry timer', async () => {
+    const fake = new FakeSupabase()
+    const a = device(fake)
+    a.engine.start(); await flush()
+    fake.failures.push({ message: 'net' })
+    a.change(d => mergeSaves(d, solved('r1')))
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(a.engine.status).toBe('offline')
+    const calls = () => fake.calls.select + fake.calls.update + fake.calls.upsert
+    const c = calls()
+    a.change(d => mergeSaves(d, solved('r2')))
+    await vi.advanceTimersByTimeAsync(4900)
+    expect(calls()).toBe(c)
+    await vi.advanceTimersByTimeAsync(200) // the 5 s backoff fires
+    expect(a.engine.status).toBe('synced')
+    expect(roomsOf(fake.rows.get(U)!.data)).toEqual(['r1', 'r2'])
+    expect(vi.getTimerCount()).toBe(0)
+    a.engine.stop()
+  })
+
+  it('A3: overwrite replaces the server save without merging, and applies nothing', async () => {
+    const fake = new FakeSupabase()
+    fake.concurrentWrite(U, solved('old1', 'old2'))
+    const a = device(fake)
+    a.engine.start(); await flush()
+    const applied = a.applied, rev = fake.rows.get(U)!.rev
+    a.engine.overwrite(solved('fresh'))
+    await flush()
+    expect(roomsOf(fake.rows.get(U)!.data)).toEqual(['fresh'])
+    expect(fake.rows.get(U)!.rev).toBe(rev + 1)
+    expect(a.applied).toBe(applied)
+    expect(a.engine.status).toBe('synced')
+    // the provider also resets the game's own save; later pulls then don't resurrect the old rooms
+    a.save = solved('fresh')
+    a.engine.stop(); a.engine.start(); await flush()
+    expect(roomsOf(fake.rows.get(U)!.data)).toEqual(['fresh'])
+    a.engine.stop()
+  })
+
+  it('A3: overwrite survives a lost CAS and works on an unreadable remote', async () => {
+    const fake = new FakeSupabase()
+    const a = device(fake)
+    a.engine.start(); await flush()
+    fake.beforeUpdate = () => { fake.beforeUpdate = null; fake.concurrentWrite(U, v2) }
+    a.engine.overwrite(solved('fresh'))
+    await flush()
+    expect(roomsOf(fake.rows.get(U)!.data)).toEqual(['fresh'])
+    expect(a.engine.status).toBe('synced')
+    a.engine.stop()
+  })
+
+  it('A3: a pull in flight when overwrite is called is discarded', async () => {
+    const fake = new FakeSupabase()
+    fake.concurrentWrite(U, solved('old'))
+    const a = device(fake)
+    const g = hold()
+    let first = true
+    fake.gates.select = () => { if (!first) return Promise.resolve(); first = false; return g.promise }
+    a.engine.start(); await flush()
+    a.engine.overwrite(solved('fresh'))
+    g.release()
+    await vi.advanceTimersByTimeAsync(2500)
+    expect(roomsOf(fake.rows.get(U)!.data)).toEqual(['fresh'])
+    expect(a.applied).toBe(0)
+    a.engine.stop()
+  })
+
+  it('A3: hiding the tab flushes a pending push at once', async () => {
+    const fake = new FakeSupabase()
+    const d = fakeDoc()
+    const a = device(fake)
+    a.engine.start(); await flush()
+    const u = fake.calls.update
+    a.change(x => mergeSaves(x, solved('r1')))
+    await vi.advanceTimersByTimeAsync(300)
+    expect(fake.calls.update).toBe(u)
+    d.doc.visibilityState = 'hidden'
+    d.fire(); await flush()
+    expect(fake.calls.update).toBe(u + 1)
+    expect(roomsOf(fake.rows.get(U)!.data)).toEqual(['r1'])
+    a.engine.stop()
   })
 })
