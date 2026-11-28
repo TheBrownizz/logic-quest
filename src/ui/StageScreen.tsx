@@ -7,6 +7,8 @@ import { hrefs, queryParam } from './router'
 import { useSave } from './save'
 import { Stars } from './Stars'
 import { findWorld } from './worlds'
+import { bestExam, bossLocked, READY_SCORE } from '../game/exam'
+import './exam/exam.css'
 
 const ordered = (stages: Stage[]) => [...stages].sort((a, b) => a.order - b.order)
 
@@ -41,8 +43,38 @@ export function WorldScreen({ worldId }: { worldId: string }) {
             </li>
           )
         })}
+        {world.boss && <BossNode world={world} />}
       </ol>
     </section>
+  )
+}
+
+/** The boss after the last stage: its lock (60% of the last stage), the best score and "מוכן למבחן" at 80+. */
+function BossNode({ world }: { world: NonNullable<ReturnType<typeof findWorld>> }) {
+  const [save] = useSave()
+  const boss = world.boss!
+  const need = bossLocked(world, save)
+  const best = bestExam(save)
+  const inner = (
+    <>
+      <span className="node mono" aria-hidden>{need === 0 ? '🎓' : '🔒'}</span>
+      <span className="node-body">
+        <span className="node-title">{boss.title}</span>
+        <span className="node-meta">
+          {need > 0
+            ? <span className="muted">נעול · {moreRooms(need)} בשלב האחרון</span>
+            : best === undefined ? <span className="muted">עוד לא נבחנתם</span>
+              : <><span className="mono" data-testid="boss-best-score">שיא {best}/100</span>{best >= READY_SCORE && <span className="ready-badge" data-testid="boss-ready">מוכן למבחן</span>}</>}
+        </span>
+      </span>
+    </>
+  )
+  return (
+    <li>
+      {need === 0
+        ? <a className="stage-node boss-node" data-testid="boss-node" data-locked="false" href={hrefs.boss}>{inner}</a>
+        : <div className="stage-node boss-node locked" data-testid="boss-node" data-locked="true" aria-disabled="true">{inner}</div>}
+    </li>
   )
 }
 

@@ -8,6 +8,8 @@ export type Route =
   | { name: 'run'; stageId: string }
   | { name: 'lesson'; lessonId: string; stepId?: string }
   | { name: 'collection' }
+  | { name: 'boss' }
+  | { name: 'exam'; mode: 'full' | 'short' }
   | { name: 'notfound' }
 
 export function parseHash(hash: string): Route {
@@ -23,6 +25,8 @@ export function parseHash(hash: string): Route {
   if (a === 'lesson' && b && parts.length === 2) return { name: 'lesson', lessonId: b }
   if (a === 'lesson' && b && c && parts.length === 3) return { name: 'lesson', lessonId: b, stepId: c }
   if (a === 'collection' && parts.length === 1) return { name: 'collection' }
+  if (a === 'boss' && parts.length === 1) return { name: 'boss' }
+  if (a === 'exam' && (b === 'full' || b === 'short') && parts.length === 2) return { name: 'exam', mode: b }
   return { name: 'notfound' }
 }
 
@@ -48,6 +52,9 @@ export const hrefs = {
   /** A lesson's skip quiz (the lesson screen opens it on arrival). */
   lessonQuiz: (l: string) => `#/lesson/${encodeURIComponent(l)}?quiz=1`,
   collection: '#/collection',
+  /** The world's boss (the mock exam's start page). */
+  boss: '#/boss',
+  exam: (mode: 'full' | 'short') => `#/exam/${mode}`,
 }
 
 export function useRoute(): Route {

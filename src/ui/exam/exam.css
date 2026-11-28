@@ -1,0 +1,60 @@
+/* The boss page, the mock exam and its results. Theme tokens only. */
+.boss-lead { max-width: 72ch; }
+.boss-best { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 14px 0; font-size: 1.1rem; }
+.boss-best b { color: var(--amber); font-size: 1.4rem; }
+.ready-badge {
+  display: inline-block; padding: 2px 12px; border-radius: 999px; font-size: .85rem; font-weight: 700;
+  color: var(--on-one); background: var(--one); box-shadow: 0 0 14px var(--one-glow);
+}
+.boss-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 14px; margin: 10px 0; }
+.boss-mode {
+  display: grid; gap: 4px; padding: 18px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  transition: border-color .15s, box-shadow .15s, transform .15s;
+}
+.boss-mode b { font-size: 1.2rem; }
+.boss-mode .mono { color: var(--amber); }
+.boss-mode:hover, .boss-mode:focus-visible { border-color: var(--amber); box-shadow: 0 0 20px var(--amber-glow); transform: translateY(-2px); }
+.boss-note { font-size: .9rem; }
+.boss-attempts { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; max-width: 420px; }
+.boss-attempts li { display: flex; gap: 12px; justify-content: space-between; padding: 8px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+.boss-attempts b { color: var(--amber); }
+
+.exam-bar {
+  position: sticky; top: 58px; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  padding: 10px 12px; margin-bottom: 14px; background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid var(--border); border-radius: var(--radius); backdrop-filter: blur(6px);
+}
+.exam-timer { font-size: 1.3rem; font-weight: 700; color: var(--one); min-width: 5.5ch; }
+.exam-timer.low { color: var(--danger); }
+.exam-tabs { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+.exam-tab {
+  font: inherit; cursor: pointer; color: var(--text); background: var(--bg); border: 1px solid var(--border);
+  border-radius: 10px; padding: 6px 12px; display: inline-flex; gap: 6px; align-items: baseline;
+}
+.exam-tab small { color: var(--muted); }
+.exam-tab.on { border-color: var(--amber); box-shadow: 0 0 12px var(--amber-glow); }
+.exam-q-title { font-size: 1.3rem; margin: 4px 0 8px; }
+.exam-part { border-top: 1px solid var(--border); padding: 12px 0 6px; }
+.exam-part h3 { margin: 0 0 6px; font-size: 1.1rem; display: flex; gap: 8px; align-items: baseline; }
+.exam-prompt, .exam-claim { max-width: 72ch; }
+.exam-claim > span { font-weight: 500; }
+.exam-verdict { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+.exam-verdict legend, .exam-part legend { margin-bottom: 6px; }
+.exam-nav { margin: 12px 0 24px; }
+
+.score-hero { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 10px 0 16px; }
+.score-num { font-size: 3.2rem; font-weight: 700; color: var(--amber); line-height: 1; }
+.exam-table { border-collapse: collapse; background: var(--surface); border-radius: 12px; overflow: hidden; }
+.exam-table th, .exam-table td { padding: 8px 14px; border-bottom: 1px solid var(--border); text-align: center; }
+.exam-table thead th { background: var(--surface-hi); color: var(--muted); font-weight: 600; }
+.exam-table tbody th { text-align: start; font-weight: 500; }
+.exam-review { list-style: none; padding: 0; display: grid; gap: 10px; }
+.exam-review > li { padding: 12px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.exam-review ul { margin: 6px 0; padding-inline-start: 20px; }
+.exam-review .ok { border-color: color-mix(in srgb, var(--one) 40%, var(--border)); }
+
+.path .boss-node { border-color: color-mix(in srgb, var(--amber) 55%, var(--border)); }
+.path .boss-node .node { color: var(--amber); border-color: var(--amber); box-shadow: 0 0 16px var(--amber-glow); font-size: 1.5rem; }
+.path .boss-node.locked .node { color: var(--zero); border-color: var(--zero); box-shadow: none; }
+.node-meta .ready-badge { margin-inline-start: 8px; font-family: var(--font-ui); }
+@media (prefers-reduced-motion: reduce) { .boss-mode { transition: none; } }

@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { rememberOpenStages } from '../game/lessonRules'
 import type { ProgressStore, SaveData } from '../game/progress'
+import { BossScreen } from './exam/BossScreen'
+import { ExamScreen } from './exam/ExamScreen'
 import { LabRoom } from './lab/LabRoom'
 import { MapScreen } from './MapScreen'
 import { Collection } from './run/Collection'
@@ -29,6 +31,8 @@ function Screen() {
     case 'run': return <RunScreen key={r.stageId} stageId={r.stageId} />
     case 'lesson': return <Suspense fallback={<LessonFallback />}><LessonScreen key={r.lessonId} lessonId={r.lessonId} stepId={r.stepId} /></Suspense>
     case 'collection': return <Collection />
+    case 'boss': return <BossScreen />
+    case 'exam': return <ExamScreen key={r.mode} mode={r.mode} />
     default: return <NotFound />
   }
 }

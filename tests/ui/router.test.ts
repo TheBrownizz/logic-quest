@@ -30,3 +30,14 @@ describe('parseHash', () => {
       expect(parseHash(h)).toEqual({ name: 'notfound' })
   })
 })
+
+describe('boss and exam routes', () => {
+  it('parse and round-trip', () => {
+    expect(parseHash(hrefs.boss)).toEqual({ name: 'boss' })
+    expect(parseHash(hrefs.exam('full'))).toEqual({ name: 'exam', mode: 'full' })
+    expect(parseHash(hrefs.exam('short'))).toEqual({ name: 'exam', mode: 'short' })
+    expect(parseHash('#/exam/long')).toEqual({ name: 'notfound' })
+    expect(parseHash('#/exam')).toEqual({ name: 'notfound' })
+    expect(parseHash('#/boss/x')).toEqual({ name: 'notfound' })
+  })
+})

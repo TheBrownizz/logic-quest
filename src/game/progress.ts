@@ -7,6 +7,13 @@ export interface RoomResult { solved: boolean; optimal: boolean; noHints: boolea
  * `skipped`: done through the skip quiz only. `quizFailedAt`: when the skip quiz last failed (ms since epoch).
  */
 export interface LessonProgress { stepId: string; done: boolean; skipped?: boolean; quizFailedAt?: number }
+/**
+ * One finished mock exam: when it ended (ms since epoch), the score out of 100 (short mode already scaled), and
+ * the points of each topic 1–4 out of 25 (-1 for a topic the exam did not ask). `mode` is optional (older entries).
+ */
+export interface ExamAttempt { at: number; score: number; perTopic: number[]; mode?: 'full' | 'short' }
+/** Mock-exam results, the last 20 attempts oldest first. Optional in stored saves; loaded as { attempts: [] }. */
+export interface ExamRecord { attempts: ExamAttempt[] }
 export interface SaveData {
   version: 1
   rooms: Record<string, RoomResult>
@@ -24,6 +31,8 @@ export interface SaveData {
    * lessons are added to the stage later. Optional in stored saves; loaded as [].
    */
   openStages: string[]
+  /** Mock-exam attempts (see ExamAttempt). */
+  exams: ExamRecord
 }
 export interface ProgressStore {
   load(): SaveData
@@ -40,7 +49,7 @@ export const SAVE_KEY = 'logic-quest-save'
 export const BACKUP_KEY = 'logic-quest-save-backup'
 
 export function emptySave(): SaveData {
-  return { version: 1, rooms: {}, chips: {}, drafts: {}, knowledge: [], bestRun: {}, flagged: [], helped: {}, lessons: {}, openStages: [] }
+  return { version: 1, rooms: {}, chips: {}, drafts: {}, knowledge: [], bestRun: {}, flagged: [], helped: {}, lessons: {}, openStages: [], exams: { attempts: [] } }
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -66,6 +75,24 @@ const validLesson = (v: unknown): v is LessonProgress =>
 /** A chip is stored under its own name; an entry under another key is dropped. */
 const validChipEntry = (v: unknown, key: string): v is Chip => validChip(v) && v.name === key
 
+/** Attempts kept in SaveData.exams. */
+export const MAX_EXAM_ATTEMPTS = 20
+
+const validAttempt = (v: unknown): v is ExamAttempt =>
+  isObj(v) && typeof v.at === 'number' && Number.isFinite(v.at) &&
+  typeof v.score === 'number' && v.score >= 0 && v.score <= 100 &&
+  Array.isArray(v.perTopic) && v.perTopic.length === 4 && v.perTopic.every(n => typeof n === 'number' && n >= -1 && n <= 25) &&
+  (v.mode === undefined || v.mode === 'full' || v.mode === 'short')
+
+/** Valid attempts only, one per `at`, oldest first, the last MAX_EXAM_ATTEMPTS. */
+// TODO(merge): exams = union by at (when src/game/merge.ts from the accounts branch lands, merge attempts by `at`)
+export function normalizeExams(v: unknown): ExamRecord {
+  if (!isObj(v) || !Array.isArray(v.attempts)) return { attempts: [] }
+  const byAt = new Map<number, ExamAttempt>()
+  for (const a of v.attempts) if (validAttempt(a)) byAt.set(a.at, { at: a.at, score: a.score, perTopic: [...a.perTopic], ...(a.mode ? { mode: a.mode } : {}) })
+  return { attempts: [...byAt.values()].sort((a, b) => a.at - b.at).slice(-MAX_EXAM_ATTEMPTS) }
+}
+
 /** Validates a parsed value as a version-1 save, filling missing fields with empty defaults. */
 function normalize(v: unknown): SaveData | null {
   if (!isObj(v) || v.version !== 1) return null
@@ -83,7 +110,7 @@ function normalize(v: unknown): SaveData | null {
   const lessons = isObj(v.lessons) ? filterEntries(v.lessons, validLesson) : {}
   const openStages = Array.isArray(v.openStages) ? [...new Set(v.openStages.filter((x): x is string => typeof x === 'string'))] : []
   if (!isObj(bestRun) || !Object.values(bestRun).every(n => typeof n === 'number')) return null
-  return { version: 1, rooms: rooms as SaveData['rooms'], chips: filterEntries(chips, validChipEntry), drafts: filterEntries(drafts, validCircuit), knowledge, bestRun: bestRun as SaveData['bestRun'], flagged, helped, lessons, openStages }
+  return { version: 1, rooms: rooms as SaveData['rooms'], chips: filterEntries(chips, validChipEntry), drafts: filterEntries(drafts, validCircuit), knowledge, bestRun: bestRun as SaveData['bestRun'], flagged, helped, lessons, openStages, exams: normalizeExams(v.exams) }
 }
 
 export class LocalProgressStore implements ProgressStore {
