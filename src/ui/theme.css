@@ -155,3 +155,37 @@ a.stage-node:hover, a.stage-node:focus-visible { transform: translateX(-4px); bo
 .err { color: var(--danger); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 .panel:focus { outline: none; }
+
+/* accounts */
+.account { position: relative; display: flex; align-items: center; gap: 8px; }
+.avatar-btn { padding: 4px; border-radius: 999px; }
+.avatar {
+  width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; object-fit: cover;
+  background: var(--surface-hi); border: 1px solid var(--border); color: var(--one); font-weight: 700;
+}
+.account-menu {
+  position: absolute; inset-inline-end: 0; top: calc(100% + 8px); z-index: 6; min-width: 220px;
+  display: grid; gap: 6px; padding: 14px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: 0 12px 40px rgba(0, 0, 0, .45); text-align: start;
+}
+.account-menu p { margin: 0; }
+.account-menu .btn { text-align: start; }
+.account-name { font-weight: 600; }
+.account-email { font-size: .85rem; direction: ltr; text-align: start; unicode-bidi: plaintext; }
+.sync-badge { font-size: 1rem; line-height: 1; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); }
+.sync-badge.synced { color: var(--one); }
+.sync-badge.saving { color: var(--amber); }
+.sync-badge.offline { color: var(--danger); border-color: var(--danger); }
+.nudge {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+  margin: 12px clamp(16px, 4vw, 40px) 0; padding: 10px 16px; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--surface-hi);
+}
+.field { display: grid; gap: 6px; }
+.input {
+  font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border);
+  border-radius: 10px; padding: 8px 12px;
+}
+.input:focus-visible { border-color: var(--amber); }
+.btn:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
+.privacy ul { padding-inline-start: 22px; display: grid; gap: 6px; }

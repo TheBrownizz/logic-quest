@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
-import { emptySave, type SaveData } from '../game/progress'
-import { useSave, useSaveStore } from './save'
+import { emptySave } from '../game/progress'
+import { useAccount } from './account/AccountContext'
+import { useSave, useSaveReplace, useSaveStore } from './save'
 
 export function SaveMenu({ onClose }: { onClose: () => void }) {
-  const [save, update] = useSave()
+  const [save] = useSave()
   const { store } = useSaveStore()
+  const replace = useSaveReplace()
+  const { user } = useAccount()
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   // An import reports success once the imported save is the one the app holds.
-  const [imported, setImported] = useState<SaveData | null>(null)
+  const [imported, setImported] = useState(false)
+  // The provider commits the replacement synchronously, so this render already holds the imported save.
   useEffect(() => {
-    if (imported && save === imported) { setMsg({ ok: true, text: 'השמירה נטענה בהצלחה' }); setImported(null) }
+    if (imported) { setMsg({ ok: true, text: 'השמירה נטענה בהצלחה' }); setImported(false) }
   }, [save, imported])
   const file = useRef<HTMLInputElement>(null)
   const panel = useRef<HTMLDivElement>(null)
@@ -38,7 +42,12 @@ export function SaveMenu({ onClose }: { onClose: () => void }) {
     if (!f) return
     try {
       const r = store.importJSON(await f.text())
-      if (r.ok) { setMsg(null); setImported(r.data); update(() => r.data) }
+      if (r.ok) {
+        if (user && !window.confirm('הקובץ יחליף את ההתקדמות בחשבון, בכל המכשירים. להמשיך?')) return
+        setMsg(null)
+        replace(r.data)
+        setImported(true)
+      }
       else setMsg({ ok: false, text: 'הקובץ לא תקין, לא בוצע שינוי' })
     } catch {
       setMsg({ ok: false, text: 'קריאת הקובץ נכשלה' })
@@ -47,8 +56,9 @@ export function SaveMenu({ onClose }: { onClose: () => void }) {
   }
 
   const doReset = () => {
-    if (!window.confirm('למחוק את כל ההתקדמות? אי אפשר לבטל.')) return
-    update(() => emptySave())
+    const text = user ? 'למחוק את כל ההתקדמות, גם בחשבון ובכל המכשירים? אי אפשר לבטל.' : 'למחוק את כל ההתקדמות? אי אפשר לבטל.'
+    if (!window.confirm(text)) return
+    replace(emptySave())
     setMsg({ ok: true, text: 'ההתקדמות אופסה' })
   }
 

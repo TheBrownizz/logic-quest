@@ -8,7 +8,11 @@ import { RunScreen } from './run/RunScreen'
 import { SaveMenu } from './SaveMenu'
 import { NotFound, StageScreen, WorldScreen } from './StageScreen'
 import { hrefs, useRoute } from './router'
-import { SaveProvider, useSave } from './save'
+import { useSave } from './save'
+import { AccountProvider } from './account/AccountContext'
+import { AccountButton } from './account/AccountButton'
+import { GuestNudge } from './account/GuestNudge'
+import { PrivacyPage } from './PrivacyPage'
 import { worlds } from './worlds'
 import './theme.css'
 
@@ -29,6 +33,7 @@ function Screen() {
     case 'run': return <RunScreen key={r.stageId} stageId={r.stageId} />
     case 'lesson': return <Suspense fallback={<LessonFallback />}><LessonScreen key={r.lessonId} lessonId={r.lessonId} stepId={r.stepId} /></Suspense>
     case 'collection': return <Collection />
+    case 'privacy': return <PrivacyPage />
     default: return <NotFound />
   }
 }
@@ -51,17 +56,19 @@ function OpenStagesKeeper() {
 export function App({ store }: { store?: ProgressStore }) {
   const [menu, setMenu] = useState(false)
   return (
-    <SaveProvider store={store}>
+    <AccountProvider store={store}>
       <OpenStagesKeeper />
       <header className="topbar">
         <a className="brand mono" href={hrefs.map}>Logic<span className="accent">Quest</span></a>
         <nav className="row">
           <a className="btn ghost" href={hrefs.collection}>אוסף</a>
           <button className="btn ghost" onClick={() => setMenu(true)}>שמירה</button>
+          <AccountButton />
         </nav>
       </header>
+      <GuestNudge />
       <main className="main"><Screen /></main>
       {menu && <SaveMenu onClose={() => setMenu(false)} />}
-    </SaveProvider>
+    </AccountProvider>
   )
 }

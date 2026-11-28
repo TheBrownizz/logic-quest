@@ -30,3 +30,10 @@ describe('parseHash', () => {
       expect(parseHash(h)).toEqual({ name: 'notfound' })
   })
 })
+
+describe('privacy route', () => {
+  it('parses #/privacy', () => {
+    expect(parseHash('#/privacy')).toEqual({ name: 'privacy' })
+    expect(parseHash('#/privacy/x')).toEqual({ name: 'notfound' })
+  })
+})

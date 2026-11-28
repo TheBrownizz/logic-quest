@@ -1,6 +1,8 @@
 /// <reference types="vite/client" />
 import type { SupabaseLike } from './types'
 
+declare const __E2E_FAKE__: boolean
+
 let real: SupabaseLike | null | undefined
 let loading: Promise<SupabaseLike | null> | undefined
 
@@ -16,7 +18,7 @@ const injectedFake = (): SupabaseLike | null => {
  */
 export function isCloudConfigured(): boolean {
   const env = import.meta.env
-  return injectedFake() !== null || !!(env.VITE_SUPABASE_URL && env.VITE_SUPABASE_ANON_KEY)
+  return __E2E_FAKE__ || injectedFake() !== null || !!(env.VITE_SUPABASE_URL && env.VITE_SUPABASE_ANON_KEY)
 }
 
 /**
@@ -36,6 +38,11 @@ export function loadSupabase(): Promise<SupabaseLike | null> {
   const fake = injectedFake()
   if (fake) return Promise.resolve(fake)
   const env = import.meta.env
+  // Build-time flag: in a normal build this condition is a constant false and the fake is not in the bundle.
+  if (__E2E_FAKE__) {
+    loading ??= import('./e2eFake').then(m => { real = m.createE2eFake(); return real })
+    return loading
+  }
   const url = env.VITE_SUPABASE_URL, key = env.VITE_SUPABASE_ANON_KEY
   if (!url || !key) return Promise.resolve(null)
   if (real) return Promise.resolve(real)
