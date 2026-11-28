@@ -103,6 +103,22 @@ export class SyncEngine {
     void this.sync()
   }
 
+  /**
+   * Pushes anything pending right away and resolves true once everything (a reset included) is written, or
+   * false if the engine went offline, was stopped, or `timeoutMs` passed. Call before `stop()` on sign-out.
+   */
+  async flush(timeoutMs = 15000): Promise<boolean> {
+    if (this.stopped) return false
+    void this.sync()
+    const end = Date.now() + timeoutMs
+    while (!this.stopped && Date.now() < end) {
+      if (!this.running && !this.dirty && !this.forced && this.status === 'synced') return true
+      if (!this.running && this.status === 'offline') return false
+      await new Promise(r => setTimeout(r, 20))
+    }
+    return false
+  }
+
   onStatus(cb: (s: SyncStatus) => void): () => void {
     this.listeners.add(cb)
     return () => { this.listeners.delete(cb) }

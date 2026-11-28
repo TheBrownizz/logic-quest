@@ -266,3 +266,22 @@ describe('regressions from review', () => {
     expect('skipped' in p.lessons.l).toBe(false)
   })
 })
+
+describe('resetGen (reset reaches every device)', () => {
+  const old = mk({ resetGen: 0, knowledge: ['old'], rooms: { r1: flag(true, true, true) }, savedAt: 99 })
+  const reset = mk({ resetGen: 1, savedAt: 5 })
+  it('the higher generation wins wholesale, in either argument order', () => {
+    expect(mergeSaves(old, reset)).toEqual(reset)
+    expect(mergeSaves(reset, old)).toEqual(reset)
+  })
+  it('equal generations merge as usual and keep the generation', () => {
+    const m = mergeSaves(mk({ resetGen: 2, knowledge: ['a'] }), mk({ resetGen: 2, knowledge: ['b'] }))
+    expect(m.resetGen).toBe(2)
+    expect([...m.knowledge].sort()).toEqual(['a', 'b'])
+  })
+  it('parseSave defaults and sanitises resetGen', () => {
+    expect(parseSave({ version: 1 })!.resetGen).toBe(0)
+    expect(parseSave({ version: 1, resetGen: -3 })!.resetGen).toBe(0)
+    expect(parseSave({ version: 1, resetGen: 4 })!.resetGen).toBe(4)
+  })
+})

@@ -26,8 +26,15 @@ export interface SaveData {
   openStages: string[]
   /** When this save was last written (ms since epoch); 0 if unknown. Set by `LocalProgressStore.save`. Used to pick the newer side when merging. */
   savedAt?: number
+  /**
+   * Reset generation, 0 by default. An explicit reset while signed in bumps it; merging two saves with different
+   * generations takes the higher one wholesale, so a reset reaches every device and old progress can't flow back.
+   */
+  resetGen?: number
 }
 export interface ProgressStore {
+  /** The storage key of a local store (per-owner), when it has one; used to react to other tabs' writes. */
+  readonly storageKey?: string
   load(): SaveData
   /** The stored save if another writer (another tab) changed it since this store last read or wrote it; else `fallback`. */
   latest(fallback: SaveData): SaveData
@@ -42,7 +49,7 @@ export const SAVE_KEY = 'logic-quest-save'
 export const BACKUP_KEY = 'logic-quest-save-backup'
 
 export function emptySave(): SaveData {
-  return { version: 1, rooms: {}, chips: {}, drafts: {}, knowledge: [], bestRun: {}, flagged: [], helped: {}, lessons: {}, openStages: [], savedAt: 0 }
+  return { version: 1, rooms: {}, chips: {}, drafts: {}, knowledge: [], bestRun: {}, flagged: [], helped: {}, lessons: {}, openStages: [], savedAt: 0, resetGen: 0 }
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -91,7 +98,8 @@ function normalize(v: unknown): SaveData | null {
   const openStages = Array.isArray(v.openStages) ? [...new Set(v.openStages.filter((x): x is string => typeof x === 'string'))] : []
   if (!isObj(bestRun) || !Object.values(bestRun).every(n => typeof n === 'number' && Number.isFinite(n))) return null
   const savedAt = typeof v.savedAt === 'number' && Number.isFinite(v.savedAt) ? v.savedAt : 0
-  return { ...v, version: 1, savedAt, rooms: rooms as SaveData['rooms'], chips: filterEntries(chips, validChipEntry), drafts: filterEntries(drafts, validCircuit), knowledge: uniq(knowledge), bestRun: bestRun as SaveData['bestRun'], flagged: uniq(flagged), helped, lessons, openStages }
+  const resetGen = typeof v.resetGen === 'number' && Number.isInteger(v.resetGen) && v.resetGen >= 0 ? v.resetGen : 0
+  return { ...v, version: 1, savedAt, resetGen, rooms: rooms as SaveData['rooms'], chips: filterEntries(chips, validChipEntry), drafts: filterEntries(drafts, validCircuit), knowledge: uniq(knowledge), bestRun: bestRun as SaveData['bestRun'], flagged: uniq(flagged), helped, lessons, openStages }
 }
 
 export interface LocalStoreOptions { key?: string; storage?: Storage }
@@ -101,6 +109,7 @@ export class LocalProgressStore implements ProgressStore {
   private lastRaw: string | null | undefined
   private storage?: Storage
   private key: string
+  get storageKey(): string { return this.key }
   /** `new LocalProgressStore()` is today's guest store. A per-owner store passes its own `key`; its backup lives under `<key>-backup`. */
   constructor(opts: LocalStoreOptions | Storage = {}) {
     const o: LocalStoreOptions = typeof (opts as Storage).getItem === 'function' ? { storage: opts as Storage } : opts as LocalStoreOptions

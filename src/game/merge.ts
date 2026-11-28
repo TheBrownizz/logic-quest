@@ -17,6 +17,7 @@ export const MERGE_RULES: Record<keyof SaveData, string> = {
   lessons: 'done is OR-ed; stepId comes from the save with the higher savedAt (a tie takes the larger stepId by string comparison)',
   openStages: 'union',
   savedAt: 'max',
+  resetGen: 'a different generation wins wholesale (the higher one; the other side is ignored); equal generations merge as usual',
 }
 
 const union = (a: string[], b: string[]): string[] => [...new Set([...a, ...b])]
@@ -79,6 +80,8 @@ function mergeLessons(a: SaveData, b: SaveData): Record<string, LessonProgress> 
 export function mergeSaves(localIn: SaveData, remoteIn: SaveData): SaveData {
   const l = parseSave(localIn), r = parseSave(remoteIn)
   if (!l || !r) return l ?? r ?? emptySave() // a malformed side is ignored; the valid side is kept as is
+  const gl = l.resetGen ?? 0, gr = r.resetGen ?? 0
+  if (gl !== gr) return gl > gr ? l : r // a reset happened on one side: nothing from the older generation survives
   return mergeValid(l, r)
 }
 
@@ -101,5 +104,6 @@ function mergeValid(local: SaveData, remote: SaveData): SaveData {
     lessons: mergeLessons(local, remote),
     openStages: union(local.openStages, remote.openStages),
     savedAt: Math.max(local.savedAt ?? 0, remote.savedAt ?? 0),
+    resetGen: local.resetGen ?? 0,
   }
 }

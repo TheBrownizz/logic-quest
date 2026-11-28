@@ -486,6 +486,42 @@ describe('review hardening', () => {
     a.engine.stop()
   })
 
+  it('flush: resolves true after a pending reset is written; false when offline', async () => {
+    const fake = new FakeSupabase()
+    const a = device(fake)
+    a.engine.start(); await vi.advanceTimersByTimeAsync(100)
+    a.engine.overwrite({ ...solved('fresh'), resetGen: 1 })
+    const p = a.engine.flush()
+    await vi.advanceTimersByTimeAsync(200)
+    expect(await p).toBe(true)
+    expect(roomsOf(fake.rows.get(U)!.data)).toEqual(['fresh'])
+    fake.failures.push({ message: 'net' })
+    a.change(d => mergeSaves(d, solved('more')))
+    const q = a.engine.flush()
+    await vi.advanceTimersByTimeAsync(200)
+    expect(await q).toBe(false)
+    a.engine.stop()
+  })
+
+  it('A5: a reset on device A reaches device B, which had old local progress; nothing flows back', async () => {
+    const fake = new FakeSupabase()
+    const a = device(fake, solved('old1')), b = device(fake, solved('old1'))
+    a.engine.start(); b.engine.start(); await vi.advanceTimersByTimeAsync(2500)
+    const fresh = { ...emptySave(), resetGen: 1 }
+    a.save = fresh
+    a.engine.overwrite(fresh)
+    await vi.advanceTimersByTimeAsync(500)
+    b.change(d => mergeSaves(d, solved('b-new'))) // B still on generation 0
+    await vi.advanceTimersByTimeAsync(2500)
+    expect(roomsOf(fake.rows.get(U)!.data)).toEqual([])
+    expect((fake.rows.get(U)!.data as SaveData).resetGen).toBe(1)
+    expect(roomsOf(b.save)).toEqual([])
+    expect(b.save.resetGen).toBe(1)
+    a.engine.stop(); a.engine.start(); await vi.advanceTimersByTimeAsync(2500)
+    expect(roomsOf(a.save)).toEqual([])
+    a.engine.stop(); b.engine.stop()
+  })
+
   it('A3: hiding the tab flushes a pending push at once', async () => {
     const fake = new FakeSupabase()
     const d = fakeDoc()
