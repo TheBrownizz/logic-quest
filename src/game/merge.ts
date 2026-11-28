@@ -1,12 +1,12 @@
-import type { Chip } from '../logic/circuit'
-import type { LessonProgress, RoomResult, SaveData } from './progress'
+import { gateCount, type Chip } from '../logic/circuit'
+import { emptySave, parseSave, type LessonProgress, type RoomResult, type SaveData } from './progress'
 
 /**
  * How each SaveData field is merged (spec 5.3 and 5.7.1). Keyed by SaveData field, so adding a field to
  * SaveData without a rule here fails to compile, and a test checks the keys against `emptySave()`.
  */
 export const MERGE_RULES: Record<keyof SaveData, string> = {
-  version: 'stays 1',
+  version: 'stays 1. Unknown fields: taken from the newer save by savedAt, local wins a tie',
   rooms: 'per room, each flag is OR-ed',
   chips: 'union by name; the chip with fewer gates wins',
   drafts: 'union; for the same room the local (current device) draft wins',
@@ -14,7 +14,7 @@ export const MERGE_RULES: Record<keyof SaveData, string> = {
   bestRun: 'max per stage',
   flagged: 'union',
   helped: 'union',
-  lessons: 'done is OR-ed; stepId comes from the save with the higher savedAt',
+  lessons: 'done is OR-ed; stepId comes from the save with the higher savedAt (a tie takes the larger stepId by string comparison)',
   openStages: 'union',
   savedAt: 'max',
 }
@@ -34,18 +34,21 @@ function mergeRooms(a: Record<string, RoomResult>, b: Record<string, RoomResult>
   return out
 }
 
-const gateCount = (c: Chip): number => c.circuit.nodes.filter(n => n.kind !== 'IN' && n.kind !== 'OUT').length
+/** Real gate count with nested chips expanded, each resolved against its own side's chips. Unresolvable: Infinity (loses). */
+function realGates(c: Chip, chips: Record<string, Chip>): number {
+  try { return gateCount(c.circuit, chips, [c.name]) } catch { return Infinity }
+}
 
 /** Fewer gates wins; on a tie the smaller JSON wins, so the result doesn't depend on the argument order. */
-function betterChip(x: Chip, y: Chip): Chip {
-  const gx = gateCount(x), gy = gateCount(y)
+function betterChip(x: Chip, y: Chip, xChips: Record<string, Chip>, yChips: Record<string, Chip>): Chip {
+  const gx = realGates(x, xChips), gy = realGates(y, yChips)
   if (gx !== gy) return gx < gy ? x : y
   return JSON.stringify(x) <= JSON.stringify(y) ? x : y
 }
 
 function mergeChips(a: Record<string, Chip>, b: Record<string, Chip>): Record<string, Chip> {
   const out: Record<string, Chip> = { ...a }
-  for (const [n, c] of Object.entries(b)) out[n] = n in a ? betterChip(a[n], c) : c
+  for (const [n, c] of Object.entries(b)) out[n] = n in a ? betterChip(a[n], c, a, b) : c
   return out
 }
 
@@ -73,7 +76,13 @@ function mergeLessons(a: SaveData, b: SaveData): Record<string, LessonProgress> 
  * Merges two saves of the same player (this device and the server) without ever losing progress.
  * Pure; does not mutate its arguments. Symmetric except `drafts`, where `local` wins (spec 5.7.1).
  */
-export function mergeSaves(local: SaveData, remote: SaveData): SaveData {
+export function mergeSaves(localIn: SaveData, remoteIn: SaveData): SaveData {
+  const l = parseSave(localIn), r = parseSave(remoteIn)
+  if (!l || !r) return l ?? r ?? emptySave() // a malformed side is ignored; the valid side is kept as is
+  return mergeValid(l, r)
+}
+
+function mergeValid(local: SaveData, remote: SaveData): SaveData {
   const newer = (remote.savedAt ?? 0) > (local.savedAt ?? 0) ? remote : local
   const older = newer === remote ? local : remote
   const bestRun: Record<string, number> = { ...local.bestRun }

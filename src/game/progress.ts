@@ -60,6 +60,9 @@ function filterEntries<T>(o: Record<string, unknown>, ok: (v: unknown, key: stri
   return Object.fromEntries(Object.entries(o).filter(([k, x]) => ok(x, k))) as Record<string, T>
 }
 
+const canonLesson = (l: LessonProgress): LessonProgress => (l.done && l.skipped === true || l.skipped === undefined ? l : (({ skipped: _s, ...rest }) => rest)(l))
+const uniq = (a: string[]): string[] => [...new Set(a)]
+
 const validLesson = (v: unknown): v is LessonProgress =>
   isObj(v) && typeof v.stepId === 'string' && typeof v.done === 'boolean' &&
   (v.skipped === undefined || typeof v.skipped === 'boolean') &&
@@ -69,6 +72,8 @@ const validLesson = (v: unknown): v is LessonProgress =>
 const validChipEntry = (v: unknown, key: string): v is Chip => validChip(v) && v.name === key
 
 /** Validates a parsed value as a version-1 save, filling missing fields with empty defaults. */
+export function parseSave(v: unknown): SaveData | null { return normalize(v) }
+
 function normalize(v: unknown): SaveData | null {
   if (!isObj(v) || v.version !== 1) return null
   const e = emptySave()
@@ -82,11 +87,11 @@ function normalize(v: unknown): SaveData | null {
   if (!isObj(chips) || !isObj(drafts)) return null
   if (!isStrArr(knowledge) || !isStrArr(flagged)) return null
   const helped = isObj(v.helped) ? filterEntries(v.helped, (x): x is true => x === true) : {}
-  const lessons = isObj(v.lessons) ? filterEntries(v.lessons, validLesson) : {}
+  const lessons = isObj(v.lessons) ? Object.fromEntries(Object.entries(filterEntries(v.lessons, validLesson)).map(([k, l]) => [k, canonLesson(l)])) : {}
   const openStages = Array.isArray(v.openStages) ? [...new Set(v.openStages.filter((x): x is string => typeof x === 'string'))] : []
   if (!isObj(bestRun) || !Object.values(bestRun).every(n => typeof n === 'number')) return null
   const savedAt = typeof v.savedAt === 'number' && Number.isFinite(v.savedAt) ? v.savedAt : 0
-  return { version: 1, savedAt, rooms: rooms as SaveData['rooms'], chips: filterEntries(chips, validChipEntry), drafts: filterEntries(drafts, validCircuit), knowledge, bestRun: bestRun as SaveData['bestRun'], flagged, helped, lessons, openStages }
+  return { ...v, version: 1, savedAt, rooms: rooms as SaveData['rooms'], chips: filterEntries(chips, validChipEntry), drafts: filterEntries(drafts, validCircuit), knowledge: uniq(knowledge), bestRun: bestRun as SaveData['bestRun'], flagged: uniq(flagged), helped, lessons, openStages }
 }
 
 export interface LocalStoreOptions { key?: string; storage?: Storage }
@@ -121,9 +126,9 @@ export class LocalProgressStore implements ProgressStore {
     return emptySave()
   }
 
-  /** Keeps the unreadable raw save once, so a later save() can't destroy the user's data. */
   private get backupKey(): string { return this.key === SAVE_KEY ? BACKUP_KEY : `${this.key}-backup` }
 
+  /** Keeps the unreadable raw save once, so a later save() can't destroy the user's data. */
   private backup(raw: string): void {
     try {
       const st = this.store()
@@ -143,7 +148,7 @@ export class LocalProgressStore implements ProgressStore {
   }
 
   save(d: SaveData): void {
-    const raw = JSON.stringify({ ...d, savedAt: Date.now() })
+    const raw = JSON.stringify(d)
     try {
       const st = this.store()
       if (!st) return
@@ -170,7 +175,7 @@ export class LocalProgressStore implements ProgressStore {
  * `current` is this tab's in-memory save, used when storage has nothing newer (or can't be read).
  */
 export function applyUpdate(store: ProgressStore, current: SaveData, fn: (d: SaveData) => SaveData): SaveData {
-  const next = fn(store.latest(current))
+  const next = { ...fn(store.latest(current)), savedAt: Date.now() }
   store.save(next)
   return next
 }

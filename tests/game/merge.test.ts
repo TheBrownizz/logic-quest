@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { mergeSaves, MERGE_RULES } from '../../src/game/merge'
-import { emptySave, LocalProgressStore, SAVE_KEY, type SaveData } from '../../src/game/progress'
+import { applyUpdate, emptySave, LocalProgressStore, parseSave, SAVE_KEY, type SaveData } from '../../src/game/progress'
 import type { Chip, Circuit, GateKind } from '../../src/logic/circuit'
 
 const circ = (gates: number): Circuit => ({
@@ -120,8 +120,14 @@ function randSave(r: () => number): SaveData {
   for (const st of ['s1', 's2', 's3']) if (r() < 0.5) s.bestRun[st] = Math.floor(r() * 100)
   for (const id of ['r1', 'r2']) if (r() < 0.5) s.helped[id] = true
   for (const l of ['l1', 'l2', 'l3']) if (r() < 0.6) s.lessons[l] = { stepId: `st${Math.floor(r() * 4)}`, done: r() < 0.5 }
+  for (const l of Object.values(s.lessons)) {
+    if (r() < 0.5) l.skipped = r() < 0.5
+    if (r() < 0.5) l.quizFailedAt = Math.floor(r() * 50)
+  }
+  s.knowledge = [...new Set(s.knowledge)]
+  if (r() < 0.5) (s as unknown as Record<string, unknown>).future = Math.floor(r() * 9)
   s.savedAt = Math.floor(r() * 5)
-  return s
+  return parseSave(s) as SaveData
 }
 const gates = (c: Circuit) => c.nodes.filter(n => n.kind !== 'IN' && n.kind !== 'OUT').length
 
@@ -162,8 +168,8 @@ describe('mergeSaves properties (seeded)', () => {
     for (const [a, b] of cases) {
       const sorted = (m: SaveData): SaveData => ({ ...m, knowledge: [...m.knowledge].sort(), flagged: [...m.flagged].sort(), openStages: [...m.openStages].sort() })
       const x = sorted(mergeSaves(a, b)), y = sorted(mergeSaves(b, a))
-      const { drafts: dx, lessons: lx, ...rx } = x
-      const { drafts: dy, lessons: ly, ...ry } = y
+      const { drafts: dx, lessons: lx, future: _fx, ...rx } = x as SaveData & { future?: unknown }
+      const { drafts: dy, lessons: ly, future: _fy, ...ry } = y as SaveData & { future?: unknown }
       expect(rx).toEqual(ry)
       expect(Object.keys(dx).sort()).toEqual(Object.keys(dy).sort())
       expect(Object.keys(lx).sort()).toEqual(Object.keys(ly).sort())
@@ -187,13 +193,20 @@ describe('savedAt and per-owner local stores', () => {
     } as unknown as Storage
     return { st, m }
   }
-  it('save() stamps savedAt and load() returns it; default is 0', () => {
+  it('save() persists the savedAt it is given; default is 0', () => {
     const { st } = fake()
     const s = new LocalProgressStore({ storage: st })
     expect(s.load().savedAt).toBe(0)
+    s.save(mk({ savedAt: 1234 }))
+    expect(s.load().savedAt).toBe(1234)
+  })
+  it('applyUpdate stamps savedAt once: the returned save equals the stored one (I1)', () => {
+    const { st } = fake()
+    const s = new LocalProgressStore({ storage: st })
     const before = Date.now()
-    s.save(emptySave())
-    expect(s.load().savedAt).toBeGreaterThanOrEqual(before)
+    const next = applyUpdate(s, s.load(), d => ({ ...d, knowledge: ['k'] }))
+    expect(next.savedAt).toBeGreaterThanOrEqual(before)
+    expect(s.load()).toEqual(next)
   })
   it('a stored save without savedAt loads with 0', () => {
     const { st } = fake({ [SAVE_KEY]: '{"version":1}' })
@@ -215,5 +228,41 @@ describe('savedAt and per-owner local stores', () => {
     expect(user.load()).toEqual(emptySave())
     expect(m['logic-quest-save:u1-backup']).toBe('{bad')
     expect(m['logic-quest-save-backup']).toBeUndefined()
+  })
+})
+
+describe('regressions from review', () => {
+  it('I2: nested chips are counted by their real gate count, each side with its own chips', () => {
+    const node = (id: string, kind: GateKind | { chip: string }) => ({ id, kind, x: 0, y: 0 })
+    const ha = chip('HA', 2)
+    const nestedFA: Chip = { name: 'FA', inputs: ['A'], outputs: ['Q'], circuit: { nodes: [node('h1', { chip: 'HA' }), node('h2', { chip: 'HA' }), node('o', 'OR')], wires: [] } }
+    const rawFA = chip('FA', 4)
+    const local = mk({ chips: { HA: ha, FA: nestedFA } }) // 2 + 2 + 1 = 5 real gates, shallow 3
+    const remote = mk({ chips: { FA: rawFA } })
+    expect(mergeSaves(local, remote).chips.FA).toEqual(rawFA)
+    expect(mergeSaves(remote, local).chips.FA).toEqual(rawFA)
+  })
+  it('I2: an unresolvable chip loses', () => {
+    const broken: Chip = { name: 'FA', inputs: [], outputs: [], circuit: { nodes: [{ id: 'h', kind: { chip: 'MISSING' }, x: 0, y: 0 }], wires: [] } }
+    const good = chip('FA', 9)
+    expect(mergeSaves(mk({ chips: { FA: broken } }), mk({ chips: { FA: good } })).chips.FA).toEqual(good)
+  })
+  it('I3: a malformed side is ignored, the valid side kept', () => {
+    const good = mk({ knowledge: ['k'], savedAt: 7 })
+    const bad: unknown[] = [null, {}, { version: 1, knowledge: 5 }, { version: 1, chips: { X: { name: 'X', inputs: [], outputs: [] } } }, 'x']
+    for (const b of bad) {
+      expect(() => mergeSaves(good, b as SaveData)).not.toThrow()
+      expect(mergeSaves(good, b as SaveData)).toEqual(good)
+      expect(mergeSaves(b as SaveData, good)).toEqual(good)
+    }
+    expect(mergeSaves({ version: 1 } as SaveData, good).knowledge).toEqual(['k'])
+    expect(mergeSaves(null as unknown as SaveData, undefined as unknown as SaveData)).toEqual(emptySave())
+  })
+  it('M1: parseSave is canonical', () => {
+    const p = parseSave({ version: 1, knowledge: ['a', 'a'], flagged: ['f', 'f'], openStages: ['s', 's'], lessons: { l: { stepId: 'x', done: false, skipped: true } } })!
+    expect(p.knowledge).toEqual(['a'])
+    expect(p.flagged).toEqual(['f'])
+    expect(p.openStages).toEqual(['s'])
+    expect('skipped' in p.lessons.l).toBe(false)
   })
 })
