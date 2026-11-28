@@ -443,6 +443,49 @@ describe('review hardening', () => {
     a.engine.stop()
   })
 
+  it('A3 race: overwrite while a push update is in flight and loses the CAS does not merge old server progress back', async () => {
+    const fake = new FakeSupabase()
+    fake.concurrentWrite(U, solved('old'))
+    const a = device(fake)
+    a.engine.start(); await vi.advanceTimersByTimeAsync(100)
+    const g = hold()
+    fake.gates.update = () => g.promise
+    a.change(x => mergeSaves(x, solved('mine')))
+    await vi.advanceTimersByTimeAsync(2000) // update in flight
+    fake.gates.update = undefined
+    fake.concurrentWrite(U, solved('old', 'other')) // so the in-flight update loses the CAS
+    const fresh = solved('fresh')
+    a.save = fresh // the provider resets the game's own save too
+    a.engine.overwrite(fresh)
+    const applied = a.applied
+    g.release()
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(roomsOf(fake.rows.get(U)!.data)).toEqual(['fresh'])
+    expect(roomsOf(a.save)).toEqual(['fresh'])
+    expect(a.applied).toBe(applied)
+    a.engine.stop(); a.engine.start(); await vi.advanceTimersByTimeAsync(3000)
+    expect(roomsOf(fake.rows.get(U)!.data)).toEqual(['fresh'])
+    expect(roomsOf(a.save)).toEqual(['fresh'])
+    a.engine.stop()
+  })
+
+  it('A3: a change made while the reset is being written is still pushed', async () => {
+    const fake = new FakeSupabase()
+    const a = device(fake)
+    a.engine.start(); await vi.advanceTimersByTimeAsync(100)
+    const g = hold()
+    fake.gates.update = () => g.promise
+    a.engine.overwrite(solved('fresh'))
+    await vi.advanceTimersByTimeAsync(10) // reset update in flight
+    fake.gates.update = undefined
+    a.change(x => mergeSaves(x, solved('after')))
+    g.release()
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(roomsOf(fake.rows.get(U)!.data)).toEqual(['after', 'fresh'])
+    expect(a.engine.status).toBe('synced')
+    a.engine.stop()
+  })
+
   it('A3: hiding the tab flushes a pending push at once', async () => {
     const fake = new FakeSupabase()
     const d = fakeDoc()

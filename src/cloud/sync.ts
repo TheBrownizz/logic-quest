@@ -90,6 +90,8 @@ export class SyncEngine {
   /**
    * Replaces the server save with `d`, without merging (the explicit reset while signed in). Reads the current
    * rev, then writes with the usual compare-and-set, retrying on a lost race. Nothing from the server is applied.
+   * Deliberate exception to "never overwrite an unreadable server save": the user explicitly confirmed the reset.
+   * Anything in flight or pulled before this call is discarded, so old server progress can't flow back in.
    */
   overwrite(d: SaveData): void {
     if (this.stopped) return
@@ -169,6 +171,7 @@ export class SyncEngine {
         if (r.error) { this.fail(); return false }
         continue
       }
+      if (this.forced) return false // a reset is pending: never merge old server progress into the game
       const remote = parseSave(row.data)
       if (!remote) { this.readable = false; this.fail(); return false } // never apply, never overwrite
       this.readable = true
@@ -204,8 +207,8 @@ export class SyncEngine {
         this.forced = null
         this.known = row.rev + 1
         this.readable = true
+        if (this.current !== d) { this.dirty = true; this.schedulePush(); return } // changed while the reset was written
         this.dirty = false
-        this.current = d
         this.markSynced()
         return
       }
@@ -217,11 +220,12 @@ export class SyncEngine {
   private async push(): Promise<void> {
     if (!this.readable || this.known === undefined) return
     this.setStatus('saving')
+    const epoch = this.epoch
     for (let attempt = 0; attempt <= MAX_CAS_RETRIES; attempt++) {
       this.dirty = false
       const data = this.localSave()
       const { data: rows, error } = await this.client.from('saves').update({ data, rev: this.known + 1 }).eq('user_id', this.userId).eq('rev', this.known).select('rev')
-      if (this.stopped) return
+      if (this.stopped || epoch !== this.epoch || this.forced) return // a reset took over: it re-reads the rev itself
       if (error) { this.dirty = true; this.fail(); return }
       if (rows && rows.length > 0) {
         this.known += 1
@@ -231,6 +235,7 @@ export class SyncEngine {
       }
       this.dirty = true
       if (!(await this.pull())) return
+      if (epoch !== this.epoch || this.forced) return
     }
     this.dirty = true
     this.fail()
