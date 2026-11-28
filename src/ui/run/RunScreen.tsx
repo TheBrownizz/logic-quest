@@ -4,7 +4,8 @@ import { answer, mulberry32, startRun, MAX_LIVES, type RunState } from '../../ga
 import { hrefs, queryParam } from '../router'
 import { Prose } from '../Prose'
 import { useSave } from '../save'
-import { LockNote } from '../LockNote'
+import { LessonsLockNote, LockNote } from '../LockNote'
+import { stageRoomsOpen } from '../../game/lessonRules'
 import { NotFound } from '../StageScreen'
 import { findWorld, worlds } from '../worlds'
 import { CardView } from './CardView'
@@ -146,6 +147,14 @@ export function RunScreen({ stageId }: { stageId: string }) {
     )
   }
   if (deck.length === 0) return <NotFound />
+  if (!stageRoomsOpen(world, stageId, save)) {
+    return (
+      <section>
+        <a className="back" href={hrefs.stage(world.id, stageId)}>→ {world.stages.find(s => s.id === stageId)?.title}</a>
+        <LessonsLockNote />
+      </section>
+    )
+  }
   const seed = again ?? initial
   return <Run key={seed} stageId={stageId} worldId={world.id} deckCards={deck} seed={seed} onAgain={() => setAgain(Date.now())} />
 }

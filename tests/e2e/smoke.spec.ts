@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { switchingWorld } from '../../src/content/switching/world'
+import { emptySave } from '../../src/game/progress'
+import { seed as seedSave, withLessonsDone } from './helpers'
 
 test('map -> world -> stage path, rtl', async ({ page }) => {
   await page.goto('/')
@@ -12,6 +14,7 @@ test('map -> world -> stage path, rtl', async ({ page }) => {
 })
 
 test('disabled worlds say soon; stage screen lists rooms and run button', async ({ page }) => {
+  await seedSave(page, withLessonsDone(emptySave()))
   await page.goto('/')
   await expect(page.getByText('בקרוב')).toHaveCount(4)
   await page.goto('/#/world/switching/stage/sw-1-numbers')
@@ -45,7 +48,7 @@ test('save menu opens, collection route', async ({ page }) => {
 })
 
 const seed = (rooms: Record<string, { solved: boolean; optimal: boolean; noHints: boolean }>) =>
-  JSON.stringify({ version: 1, rooms, chips: {}, drafts: {}, knowledge: [], bestRun: {}, flagged: [] })
+  JSON.stringify({ version: 1, rooms, chips: {}, drafts: {}, knowledge: [], bestRun: {}, flagged: [], lessons: withLessonsDone(emptySave()).lessons })
 
 test('NAND half adder room: autofill, check, stars on the stage screen', async ({ page }) => {
   const done = { solved: true, optimal: true, noHints: true }

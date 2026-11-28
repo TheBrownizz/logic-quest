@@ -1,0 +1,62 @@
+/* ComplementLab — theme tokens only. Text is RTL; the digit grids are LTR. */
+.clab { --gut: 30px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.cl-steps { list-style: none; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin: 0; padding: 0; }
+.cl-stepchip button {
+  font: inherit; font-size: .78rem; padding: 3px 8px; border-radius: 999px; cursor: pointer; color: var(--muted);
+  background: transparent; border: 1px solid var(--border); transition: color .2s, border-color .2s, background .2s;
+}
+.cl-stepchip button:disabled { cursor: default; opacity: .55; }
+.cl-stepchip.seen button { color: var(--text); border-color: var(--one); }
+.cl-stepchip.cur button { background: var(--amber); border-color: var(--amber); color: var(--bg); font-weight: 700; }
+.cl-problem { font-size: 1.15rem; color: var(--muted); text-align: center; }
+
+.cl-rows {
+  display: flex; flex-direction: column; gap: 4px; width: min(100%, 460px); animation: cl-in .3s ease-out;
+}
+@keyframes cl-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.cl-rowwrap { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+.cl-caption { display: flex; gap: 10px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; font-size: .85rem; color: var(--muted); }
+.cl-eq { color: var(--muted); font-size: .8rem; }
+.cl-row { display: grid; gap: 4px; align-items: stretch; }
+.cl-gut { display: grid; place-items: center; color: var(--amber); font-size: 1.3rem; font-weight: 700; }
+.cl-cell {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; min-height: 44px; padding: 2px 0;
+  border-radius: 9px; background: var(--bg); border: 1px solid var(--border);
+}
+.cl-d { font-size: clamp(1.1rem, 5vw, 1.55rem); font-weight: 700; line-height: 1.3; }
+.cl-ann { font-size: .62rem; color: var(--muted); line-height: 1; min-height: .62rem; }
+.cl-cell.wait { border-style: dashed; }
+.cl-cell.wait .cl-d { color: var(--zero); font-weight: 400; }
+.cl-cell.in { animation: cl-pop .4s cubic-bezier(.2, .8, .3, 1) both; }
+@keyframes cl-pop { from { opacity: 0; transform: translateY(-10px) scale(1.25); } to { opacity: 1; transform: none; } }
+.cl-row.a .cl-d { color: var(--text); }
+.cl-row.b .cl-d { color: var(--g2); }
+.cl-row.dim .cl-d { color: var(--muted); font-weight: 400; }
+.cl-row.dim .cl-cell { background: transparent; }
+.cl-row.out .cl-cell.in { border-color: var(--one); box-shadow: 0 0 10px var(--one-glow); }
+.cl-row.out .cl-d { color: var(--one); }
+
+.cl-row.carry { margin-bottom: -2px; }
+.cl-row.carry .cl-cell { min-height: 26px; background: transparent; border: 0; padding: 0; }
+.cl-chip {
+  display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-size: .8rem; font-weight: 700;
+  background: var(--amber); color: var(--bg); box-shadow: 0 0 8px var(--amber-glow); animation: cl-pop .4s ease-out both;
+}
+.cl-endc {
+  display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; font-size: .85rem; font-weight: 700;
+  border: 1px solid var(--zero); color: var(--muted); animation: cl-pop .4s ease-out both;
+}
+.cl-endc.one { background: var(--amber); border-color: var(--amber); color: var(--bg); box-shadow: 0 0 8px var(--amber-glow); }
+.cl-endc.struck { position: relative; opacity: .7; }
+.cl-endc.struck::after { content: ''; position: absolute; left: -3px; right: -3px; top: 50%; height: 2px; background: var(--danger); transform: rotate(-35deg); animation: cl-strike .4s ease-out .3s both; transform-origin: left; }
+@keyframes cl-strike { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+.cl-rule { height: 2px; background: var(--border); margin-inline-start: var(--gut); margin-block: 2px; border-radius: 2px; }
+
+.cl-note { margin: 4px 0 0; max-width: 460px; text-align: start; line-height: 1.7; min-height: 3.4em; }
+.cl-controls { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.cl-controls .btn { margin-top: 0; }
+.cl-controls .btn:disabled { opacity: .5; cursor: default; }
+.cl-done { color: var(--one); font-weight: 700; }
+
+.clab.rm *, .clab.rm *::before, .clab.rm *::after { animation: none !important; transition: none !important; }
+@media (prefers-reduced-motion: reduce) { .clab * , .clab *::after { animation: none !important; transition: none !important; } }

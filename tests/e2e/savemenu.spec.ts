@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test'
 import { emptySave } from '../../src/game/progress'
+import { seed, withLessonsDone } from './helpers'
 
 test('export saves the in-memory progress even when storage writes fail', async ({ page }) => {
+  await seed(page, withLessonsDone(emptySave())) // runs before writes start failing
   await page.addInitScript(() => { Storage.prototype.setItem = () => { throw new Error('quota') } })
   await page.goto('/#/room/sw-1-r1')
   await page.getByTestId('number-input').fill('10110101')
@@ -17,6 +19,7 @@ test('export saves the in-memory progress even when storage writes fail', async 
   await page.getByRole('button', { name: 'ייצוא' }).click()
   const text = await page.evaluate(() => (window as unknown as { exported: Promise<string> }).exported)
   expect(JSON.parse(text).rooms['sw-1-r1']?.solved).toBe(true)
+  expect(Object.keys(JSON.parse(text).lessons).length).toBeGreaterThan(0)
 })
 
 test('import loads the file into the app before reporting success', async ({ page }) => {

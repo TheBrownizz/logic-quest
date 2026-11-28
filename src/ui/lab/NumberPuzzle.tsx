@@ -1,27 +1,25 @@
 import { useState, type FormEvent } from 'react'
-import type { LabPuzzle, Room } from '../../content/types'
+import type { LabPuzzle } from '../../content/types'
 import type { RoomResult } from '../../game/progress'
 import { Prose } from '../Prose'
-import { Hints, REVEAL_AFTER, RestartButton, SolvedVerdict, WRONG_TEXT, useHelped, useSolve } from './roomParts'
+import { HostHints, REVEAL_AFTER, RestartButton, SolvedVerdict, WRONG_TEXT, revealNote, type PuzzleHost } from './roomParts'
 import { checkNumber } from './labLogic'
 
 type NumberPz = Extract<LabPuzzle, { type: 'number' }>
 
-export function NumberPuzzle({ room, puzzle, onRestart }: { room: Room; puzzle: NumberPz; onRestart: () => void }) {
-  const solve = useSolve(room.id)
-  const [helped, markHelped] = useHelped(room.id)
+export function NumberPuzzle({ host, puzzle }: { host: PuzzleHost; puzzle: NumberPz }) {
+  const { solve, helped, markHelped, onRestart } = host
   const [answer, setAnswer] = useState('')
   const [wrong, setWrong] = useState(0)
   const [lastWrong, setLastWrong] = useState(false)
   const [revealed, setRevealed] = useState(false)
-  const [done, setDone] = useState<RoomResult | null>(null)
-  const [hintsShown, setHintsShown] = useState(0)
+  const [done, setDone] = useState<{ result?: RoomResult } | null>(null)
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
     if (done || answer.trim() === '') return
     if (checkNumber(puzzle.check, answer, puzzle.answer)) {
-      setDone(solve({ solved: true, optimal: true, noHints: !helped }))
+      setDone({ result: solve({ solved: true, optimal: true, noHints: !helped }) })
       setLastWrong(false)
     } else {
       setWrong(w => w + 1)
@@ -45,16 +43,16 @@ export function NumberPuzzle({ room, puzzle, onRestart }: { room: Room; puzzle: 
       </form>
       <div className="lab-panels">
         <div className="panel-col">
-          {done && <SolvedVerdict result={done} />}
+          {done && <SolvedVerdict result={done.result} />}
           {!done && lastWrong && <div className="verdict bad" role="alert" key={wrong}><strong>{WRONG_TEXT}</strong></div>}
           {!done && wrong >= REVEAL_AFTER && !revealed && (
-            <button type="button" className="btn ghost" onClick={reveal}>הצג תשובה <span className="muted">· מוותר על כוכב</span></button>
+            <button type="button" className="btn ghost" onClick={reveal}>הצג תשובה{revealNote(host)}</button>
           )}
           {!done && revealed && (
             <p className="hint" data-testid="revealed">התשובה: <span className="mono">{puzzle.answer}</span></p>
           )}
         </div>
-        <Hints hints={room.hints} shown={hintsShown} onReveal={() => { setHintsShown(s => s + 1); markHelped() }} />
+        <HostHints host={host} />
       </div>
     </div>
   )

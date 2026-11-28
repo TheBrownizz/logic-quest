@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
-import type { LabPuzzle, Room } from '../../content/types'
+import type { LabPuzzle } from '../../content/types'
 import type { RoomResult } from '../../game/progress'
 import { stars } from '../../game/rules'
 import { checkCover, groupToTerm, kmapLayout, type Group } from '../../logic/kmap'
 import { formatSOP } from '../../logic/qm'
 import { Stars } from '../Stars'
-import { Hints, RestartButton, useHelped, useSolve } from './roomParts'
+import { HostHints, RestartButton, type PuzzleHost } from './roomParts'
 import { dragSelection } from './labLogic'
 
 type KMapPz = Extract<LabPuzzle, { type: 'kmap' }>
@@ -45,16 +45,14 @@ function addGroup(gs: KGroup[], sel: Sel): KGroup[] {
   return [...gs, { ...sel, color }]
 }
 
-type Verdict = { kind: 'bad'; text: string } | { kind: 'ok'; minimal: boolean; result: RoomResult }
+type Verdict = { kind: 'bad'; text: string } | { kind: 'ok'; minimal: boolean; result?: RoomResult }
 
-export function KMapPuzzle({ room, puzzle, onRestart }: { room: Room; puzzle: KMapPz; onRestart: () => void }) {
+export function KMapPuzzle({ host, puzzle }: { host: PuzzleHost; puzzle: KMapPz }) {
   const { nVars, minterms, dontCares } = puzzle
   const L = useMemo(() => kmapLayout(nVars), [nVars])
   const rb = Math.floor(nVars / 2)
   const cb = nVars - rb
-  const solve = useSolve(room.id)
-  const [helped, markHelped] = useHelped(room.id)
-  const [hintsShown, setHintsShown] = useState(0)
+  const { solve, helped, onRestart } = host
   const [groups, setGroups] = useState<KGroup[]>([])
   const [verdict, setVerdict] = useState<Verdict | null>(null)
   const [drag, setDrag] = useState<{ start: Cell; cur: Cell } | null>(null)
@@ -223,14 +221,14 @@ export function KMapPuzzle({ room, puzzle, onRestart }: { room: Room; puzzle: KM
             <div className="verdict good" role="status">
               <div className="verdict-head">
                 <strong className="verdict-title">{verdict.minimal ? 'נכון!' : 'נכון – אבל אפשר עם פחות ליטרלים'}</strong>
-                <Stars n={stars(verdict.result)} testId="result-stars" />
+                {verdict.result && <Stars n={stars(verdict.result)} testId="result-stars" />}
               </div>
               <p className="mono-num" dir="ltr">f = {cover.expression}</p>
-              {!verdict.minimal && <p>נסו לאחד קבוצות לגדולות יותר, גם דרך קצוות המפה, כדי לקבל כוכב אופטימום.</p>}
+              {!verdict.minimal && <p>נסו לאחד קבוצות לגדולות יותר, גם דרך קצוות המפה{host.stars ? ', כדי לקבל כוכב אופטימום' : ''}.</p>}
             </div>
           )}
         </div>
-        <Hints hints={room.hints} shown={hintsShown} onReveal={() => { setHintsShown(s => s + 1); markHelped() }} />
+        <HostHints host={host} />
       </div>
     </div>
   )

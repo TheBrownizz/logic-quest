@@ -60,7 +60,7 @@ describe('LocalProgressStore', () => {
     expect(s.importJSON('{"version":1,"rooms":5}').ok).toBe(false)
   })
   it('SaveData has no run field', () => {
-    expect(Object.keys(emptySave()).sort()).toEqual(['bestRun', 'chips', 'drafts', 'flagged', 'helped', 'knowledge', 'rooms', 'version'])
+    expect(Object.keys(emptySave()).sort()).toEqual(['bestRun', 'chips', 'drafts', 'flagged', 'helped', 'knowledge', 'lessons', 'openStages', 'rooms', 'version'])
   })
   it('drops bad chips/drafts entries, keeps good ones', () => {
     const c = { nodes: [], wires: [] }
@@ -89,6 +89,39 @@ describe('LocalProgressStore', () => {
     a.save({ ...emptySave(), helped: { r1: true } })
     const r = new LocalProgressStore(fake()).importJSON(a.exportJSON(a.load()))
     expect(r.ok && r.data.helped).toEqual({ r1: true })
+  })
+})
+
+describe('lessons field', () => {
+  const load = (v: unknown) => new LocalProgressStore(fake({ 'logic-quest-save': JSON.stringify(v) })).load()
+  it('defaults to {} (empty save and an old v1 save); version stays 1', () => {
+    expect(emptySave().lessons).toEqual({})
+    const old = load({ version: 1, rooms: {} })
+    expect(old.lessons).toEqual({})
+    expect(old.version).toBe(1)
+  })
+  it('keeps good entries and drops bad ones without rejecting the save', () => {
+    const lessons = {
+      ok: { stepId: 's1', done: false },
+      full: { stepId: 's2', done: true, skipped: true, quizFailedAt: 123 },
+      noStep: { done: true },
+      badDone: { stepId: 'x', done: 'yes' },
+      badSkip: { stepId: 'x', done: true, skipped: 1 },
+      badTime: { stepId: 'x', done: false, quizFailedAt: 'soon' },
+      nanTime: { stepId: 'x', done: false, quizFailedAt: null },
+      notObj: 5,
+    }
+    const s = load({ version: 1, knowledge: ['k'], lessons })
+    expect(s.knowledge).toEqual(['k'])
+    expect(s.lessons).toEqual({ ok: lessons.ok, full: lessons.full })
+  })
+  it('a lessons value that is not an object becomes {}', () => {
+    for (const lessons of [[1], 'x', 3, null]) expect(load({ version: 1, lessons }).lessons).toEqual({})
+  })
+  it('lessons survive export/import', () => {
+    const d = { ...emptySave(), lessons: { l: { stepId: 'a', done: true, skipped: true } } }
+    const r = new LocalProgressStore(fake()).importJSON(new LocalProgressStore(fake()).exportJSON(d))
+    expect(r.ok && r.data.lessons).toEqual(d.lessons)
   })
 })
 

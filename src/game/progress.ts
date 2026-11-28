@@ -1,6 +1,12 @@
 import type { Chip, Circuit } from '../logic/circuit'
 
 export interface RoomResult { solved: boolean; optimal: boolean; noHints: boolean }
+/**
+ * A lesson's progress. `stepId` is the step the player is on (an id, not an index, so editing a lesson can't
+ * shift it; an unknown id resumes at the start). `done`: the end was reached or the skip quiz passed.
+ * `skipped`: done through the skip quiz only. `quizFailedAt`: when the skip quiz last failed (ms since epoch).
+ */
+export interface LessonProgress { stepId: string; done: boolean; skipped?: boolean; quizFailedAt?: number }
 export interface SaveData {
   version: 1
   rooms: Record<string, RoomResult>
@@ -11,6 +17,13 @@ export interface SaveData {
   flagged: string[]
   /** Rooms where help (a hint, autofill, a retry after seeing the answer) was used since the player last started the room over. A solve keeps it. */
   helped: Record<string, true>
+  /** Lesson progress by lesson id. Optional in stored saves (older v1 saves have none); loaded as {}. */
+  lessons: Record<string, LessonProgress>
+  /**
+   * Stages whose rooms and run were opened by finishing their lessons. Kept so the unlock is permanent even if
+   * lessons are added to the stage later. Optional in stored saves; loaded as [].
+   */
+  openStages: string[]
 }
 export interface ProgressStore {
   load(): SaveData
@@ -27,7 +40,7 @@ export const SAVE_KEY = 'logic-quest-save'
 export const BACKUP_KEY = 'logic-quest-save-backup'
 
 export function emptySave(): SaveData {
-  return { version: 1, rooms: {}, chips: {}, drafts: {}, knowledge: [], bestRun: {}, flagged: [], helped: {} }
+  return { version: 1, rooms: {}, chips: {}, drafts: {}, knowledge: [], bestRun: {}, flagged: [], helped: {}, lessons: {}, openStages: [] }
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -44,6 +57,11 @@ const validChip = (v: unknown): v is Chip =>
 function filterEntries<T>(o: Record<string, unknown>, ok: (v: unknown, key: string) => v is T): Record<string, T> {
   return Object.fromEntries(Object.entries(o).filter(([k, x]) => ok(x, k))) as Record<string, T>
 }
+
+const validLesson = (v: unknown): v is LessonProgress =>
+  isObj(v) && typeof v.stepId === 'string' && typeof v.done === 'boolean' &&
+  (v.skipped === undefined || typeof v.skipped === 'boolean') &&
+  (v.quizFailedAt === undefined || (typeof v.quizFailedAt === 'number' && Number.isFinite(v.quizFailedAt)))
 
 /** A chip is stored under its own name; an entry under another key is dropped. */
 const validChipEntry = (v: unknown, key: string): v is Chip => validChip(v) && v.name === key
@@ -62,8 +80,10 @@ function normalize(v: unknown): SaveData | null {
   if (!isObj(chips) || !isObj(drafts)) return null
   if (!isStrArr(knowledge) || !isStrArr(flagged)) return null
   const helped = isObj(v.helped) ? filterEntries(v.helped, (x): x is true => x === true) : {}
+  const lessons = isObj(v.lessons) ? filterEntries(v.lessons, validLesson) : {}
+  const openStages = Array.isArray(v.openStages) ? [...new Set(v.openStages.filter((x): x is string => typeof x === 'string'))] : []
   if (!isObj(bestRun) || !Object.values(bestRun).every(n => typeof n === 'number')) return null
-  return { version: 1, rooms: rooms as SaveData['rooms'], chips: filterEntries(chips, validChipEntry), drafts: filterEntries(drafts, validCircuit), knowledge, bestRun: bestRun as SaveData['bestRun'], flagged, helped }
+  return { version: 1, rooms: rooms as SaveData['rooms'], chips: filterEntries(chips, validChipEntry), drafts: filterEntries(drafts, validCircuit), knowledge, bestRun: bestRun as SaveData['bestRun'], flagged, helped, lessons, openStages }
 }
 
 export class LocalProgressStore implements ProgressStore {

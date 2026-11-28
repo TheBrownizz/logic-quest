@@ -1,28 +1,26 @@
 import { useState, type FormEvent } from 'react'
-import type { LabPuzzle, Room } from '../../content/types'
+import type { LabPuzzle } from '../../content/types'
 import type { RoomResult } from '../../game/progress'
-import { Hints, REVEAL_AFTER, RestartButton, SolvedVerdict, WRONG_TEXT, useHelped, useSolve } from './roomParts'
+import { HostHints, REVEAL_AFTER, RestartButton, SolvedVerdict, WRONG_TEXT, revealNote, type PuzzleHost } from './roomParts'
 import { checkCode } from './labLogic'
 import { ProseLines } from '../Prose'
 
 type CodePz = Extract<LabPuzzle, { type: 'code' }>
 
-export function CodePuzzle({ room, puzzle, onRestart }: { room: Room; puzzle: CodePz; onRestart: () => void }) {
-  const solve = useSolve(room.id)
-  const [helped, markHelped] = useHelped(room.id)
+export function CodePuzzle({ host, puzzle }: { host: PuzzleHost; puzzle: CodePz }) {
+  const { solve, helped, markHelped, onRestart } = host
   const [given, setGiven] = useState<string[]>(() => puzzle.inputs.map(() => ''))
   const [marks, setMarks] = useState<boolean[] | null>(null)
   const [wrong, setWrong] = useState(0)
   const [revealed, setRevealed] = useState(false)
-  const [done, setDone] = useState<RoomResult | null>(null)
-  const [hintsShown, setHintsShown] = useState(0)
+  const [done, setDone] = useState<{ result?: RoomResult } | null>(null)
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
     if (done) return
     const ok = checkCode(puzzle.encode, puzzle.inputs, given)
     setMarks(ok)
-    if (ok.every(Boolean)) setDone(solve({ solved: true, optimal: true, noHints: !helped }))
+    if (ok.every(Boolean)) setDone({ result: solve({ solved: true, optimal: true, noHints: !helped }) })
     else setWrong(w => w + 1)
   }
 
@@ -57,13 +55,13 @@ export function CodePuzzle({ room, puzzle, onRestart }: { room: Room; puzzle: Co
       </form>
       <div className="lab-panels">
         <div className="panel-col">
-          {done && <SolvedVerdict result={done} />}
+          {done && <SolvedVerdict result={done.result} />}
           {!done && marks && <div className="verdict bad" role="alert" key={wrong}><strong>{WRONG_TEXT}</strong></div>}
           {!done && wrong >= REVEAL_AFTER && !revealed && (
-            <button type="button" className="btn ghost" onClick={reveal}>הצג תשובה <span className="muted">· מוותר על כוכב</span></button>
+            <button type="button" className="btn ghost" onClick={reveal}>הצג תשובה{revealNote(host)}</button>
           )}
         </div>
-        <Hints hints={room.hints} shown={hintsShown} onReveal={() => { setHintsShown(s => s + 1); markHelped() }} />
+        <HostHints host={host} />
       </div>
     </div>
   )
