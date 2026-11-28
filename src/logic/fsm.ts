@@ -45,6 +45,21 @@ export type Partition = number[][]
 const usedList = (f: { stateBits: number; used?: number[] }) =>
   f.used ? [...f.used].sort((a, b) => a - b) : Array.from({ length: 1 << f.stateBits }, (_, i) => i)
 
+function checkUsed(stateBits: number, used: number[] | undefined, next: (s: number, x: number) => number, nIn: number) {
+  if (!used) return
+  const n = 1 << stateBits
+  const set = new Set(used)
+  for (const s of used) {
+    if (!Number.isInteger(s) || s < 0 || s >= n) throw new Error(`used: state ${s} out of range`)
+  }
+  for (const s of set) {
+    for (let x = 0; x < nIn; x++) {
+      const t = next(s, x)
+      if (!set.has(t)) throw new Error(`next: state ${s} goes to unused state ${t}`)
+    }
+  }
+}
+
 /** Build an Fsm from literal next/out arrays: next[s][x], out[s][x] (state code s, input code x). */
 export function fsmFromRows(spec: {
   stateVars: string[]
@@ -59,7 +74,9 @@ export function fsmFromRows(spec: {
   const nIn = 1 << spec.inputs.length
   const nOutVals = 1 << spec.outputs.length
   const used = usedList({ stateBits, used: spec.used })
-  const isUsed = new Set(used)
+  for (const s of used) {
+    if (!Number.isInteger(s) || s < 0 || s >= nStates) throw new Error(`used: state ${s} out of range`)
+  }
   const ok = (m: number[][], limit: number, what: string) => {
     if (m.length > nStates) throw new Error(`${what}: at most ${nStates} state rows, got ${m.length}`)
     for (const s of used) {
@@ -71,11 +88,6 @@ export function fsmFromRows(spec: {
   }
   ok(spec.next, nStates, 'next')
   ok(spec.out, nOutVals, 'out')
-  for (const s of used) {
-    for (const v of spec.next[s]) {
-      if (!isUsed.has(v)) throw new Error(`next: state ${s} goes to unused state ${v}`)
-    }
-  }
   const base = {
     stateBits,
     stateVars: [...spec.stateVars],
@@ -85,6 +97,7 @@ export function fsmFromRows(spec: {
     next: (s: number, x: number) => spec.next[s]?.[x] ?? 0,
     out: (s: number, x: number) => spec.out[s]?.[x] ?? 0,
   }
+  checkUsed(stateBits, spec.used, base.next, nIn)
   return { ...base, kind: kindOf(base, used, nIn) }
 }
 
@@ -127,6 +140,7 @@ export function fromEquations(eqs: {
     next: (s: number, x: number) => pack(stateVars, eqs.next, env(s, x)),
     out: (s: number, x: number) => pack(outputs, eqs.out, env(s, x)),
   }
+  checkUsed(base.stateBits, eqs.used, base.next, 1 << inputs.length)
   return { ...base, kind: kindOf(base, usedList(base), 1 << inputs.length) }
 }
 
@@ -201,7 +215,15 @@ export function reduceStates(table: StateTable): Partition {
   }
   block = refine(s => Array.from({ length: nIn }, (_, x) => row(s, x).out).join(','))
   for (;;) {
-    const nb = refine(s => `${block.get(s)}|` + Array.from({ length: nIn }, (_, x) => block.get(row(s, x).next!)).join(','))
+    const nb = refine(
+      s =>
+        `${block.get(s)}|` +
+        Array.from({ length: nIn }, (_, x) => {
+          const t = row(s, x).next!
+          if (!block.has(t)) throw new Error(`reduceStates: state ${s} goes to unused state ${t}`)
+          return block.get(t)
+        }).join(','),
+    )
     const same = new Set(nb.values()).size === new Set(block.values()).size
     block = nb
     if (same) break

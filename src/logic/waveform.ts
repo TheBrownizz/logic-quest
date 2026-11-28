@@ -11,9 +11,47 @@ const SPEC: Record<WaveKind, { names: string[]; level: boolean; ff?: FFType }> =
   'ff-JK': { names: ['J', 'K'], level: false, ff: 'JK' },
 }
 
+const isBit = (v: unknown): v is Bit => v === 0 || v === 1
+
+function bitsError(name: string, s: readonly unknown[]): string | null {
+  const i = s.findIndex(v => !isBit(v))
+  return i >= 0 ? `${name}[${i}] is not 0 or 1` : null
+}
+
 /**
- * Discrete half-cycle grid: column i holds clk[i], the inputs and the returned Q[i].
- * Each signal is constant within a column; changes happen on column boundaries.
+ * Problems that make a waveform puzzle ill-defined; an empty list means it is fine.
+ * Checks: clk and inputs are bits of equal length, clk has at least one rising edge, and no input
+ * changes on a column boundary where clk changes (in either direction), so every latch closing and
+ * every flip-flop edge samples a stable value. Clock phases may span several columns.
+ */
+export function validateWaveConfig(
+  clk: readonly Bit[],
+  inputs: Record<string, readonly Bit[]>,
+): string[] {
+  const errs: string[] = []
+  const e0 = bitsError('clk', clk)
+  if (e0) errs.push(e0)
+  for (const [n, s] of Object.entries(inputs)) {
+    const e = bitsError(n, s)
+    if (e) errs.push(e)
+    if (s.length !== clk.length) errs.push(`input ${n} has length ${s.length}, clk has ${clk.length}`)
+  }
+  if (errs.length) return errs
+  if (!clk.some((c, i) => i > 0 && clk[i - 1] === 0 && c === 1)) errs.push('clk has no rising edge')
+  for (let i = 1; i < clk.length; i++) {
+    if (clk[i] === clk[i - 1]) continue
+    for (const [n, s] of Object.entries(inputs)) {
+      if (s[i] !== s[i - 1]) errs.push(`input ${n} changes at the clk transition into column ${i}`)
+    }
+  }
+  return errs
+}
+
+/**
+ * Discrete grid: column i holds clk[i], the inputs and the returned Q[i]. Each signal is constant
+ * within a column; changes happen on column boundaries. A clock phase (a run of equal clk values)
+ * may span two or more columns, so inputs can change while clk is high; this is what separates
+ * level-sensitive latches from edge-triggered flip-flops. `q0` is the state before column 0.
  *
  * - Latches are level-sensitive (clk=1 transparent/enabled, clk=0 hold).
  *   The latch closes at the 1->0 boundary and captures the value before it.
@@ -21,8 +59,9 @@ const SPEC: Record<WaveKind, { names: string[]; level: boolean; ff?: FFType }> =
  *   they sample the inputs of column i-1, and the new Q appears in column i.
  *   Column 0 is never an edge (no previous column).
  * - Only well-defined cases are allowed; otherwise this throws:
- *   an input that changes on the same boundary as the sampling edge (setup/hold race),
- *   SR with S=R=1 while enabled, missing or wrong-length inputs.
+ *   an input that changes on the same boundary as the sampling edge (setup/hold race; for the SR
+ *   latch a lone 1->0 change of S or R with the other at 0 is harmless and allowed),
+ *   SR with S=R=1 while enabled, missing or wrong-length inputs, non-bit values.
  */
 export function simulateWave(
   kind: WaveKind,
@@ -32,20 +71,33 @@ export function simulateWave(
 ): Bit[] {
   const spec = SPEC[kind]
   if (!spec) throw new Error(`unknown waveform kind: ${String(kind)}`)
+  if (!isBit(q0)) throw new Error('q0 is not 0 or 1')
+  const ce = bitsError('clk', clk)
+  if (ce) throw new Error(`${kind}: ${ce}`)
   const sig = spec.names.map(n => {
     const s = inputs[n]
     if (!s) throw new Error(`${kind}: missing input ${n}`)
     if (s.length !== clk.length) throw new Error(`${kind}: input ${n} has length ${s.length}, clk has ${clk.length}`)
+    const e = bitsError(n, s)
+    if (e) throw new Error(`${kind}: ${e}`)
     return s
   })
   const at = (i: number) => sig.map(s => s[i]) as Bit[]
   const changed = (i: number) => sig.some(s => s[i] !== s[i - 1])
+  // SR latch: one input falls 1->0 while the other is 0 before and after: Q is unaffected.
+  const harmlessSR = (i: number) => {
+    if (kind !== 'latch-SR') return false
+    const [s, r] = sig
+    const sFall = s[i - 1] === 1 && s[i] === 0 && r[i - 1] === 0 && r[i] === 0
+    const rFall = r[i - 1] === 1 && r[i] === 0 && s[i - 1] === 0 && s[i] === 0
+    return sFall || rFall
+  }
 
   const out: Bit[] = []
   let q: Bit = q0
   for (let i = 0; i < clk.length; i++) {
     if (spec.level) {
-      if (i > 0 && clk[i - 1] === 1 && clk[i] === 0 && changed(i)) {
+      if (i > 0 && clk[i - 1] === 1 && clk[i] === 0 && changed(i) && !harmlessSR(i)) {
         throw new Error(`${kind}: race, input changes as the latch closes (column ${i})`)
       }
       if (clk[i] === 1) {

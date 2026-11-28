@@ -13,6 +13,7 @@ import {
 } from '../../src/logic/fsm'
 import { minimizeSOP, literalCount } from '../../src/logic/qm'
 import type { Bit } from '../../src/logic/boolean'
+import type { StateTable } from '../../src/logic/fsm'
 
 /** moed B, Q4a. State AB (A = MSB), input X (LSB). next[s][x], out[s][x]. */
 const moedB: Fsm = fsmFromRows({
@@ -193,5 +194,38 @@ describe('input validation', () => {
     expect(() =>
       fsmFromRows({ stateVars: ['A'], inputs: ['x'], outputs: ['y'], next: [[0, 2], [0, 0]], out: [[0, 0], [0, 0]] }),
     ).toThrow()
+  })
+})
+
+describe('used-state validation', () => {
+  const eq = (used: number[], to: number) =>
+    fromEquations({
+      stateVars: ['A', 'B'],
+      inputs: ['x'],
+      next: { A: () => ((to >> 1) & 1) as Bit, B: () => (to & 1) as Bit },
+      out: { z: () => 0 },
+      used,
+    })
+  it('fromEquations accepts a closed used set', () => {
+    expect(() => eq([0, 1, 2], 1)).not.toThrow()
+  })
+  it('fromEquations rejects a transition into an unused state', () => {
+    expect(() => eq([0, 1, 2], 3)).toThrow(/unused/)
+  })
+  it('rejects out-of-range used codes (both builders)', () => {
+    expect(() => eq([0, 4], 0)).toThrow(/range/)
+    expect(() =>
+      fsmFromRows({ stateVars: ['A'], inputs: ['x'], outputs: ['y'], next: [[0, 0], [0, 0]], out: [[0, 0], [0, 0]], used: [0, 2] }),
+    ).toThrow(/range/)
+  })
+  it('reduceStates throws when next is not a used state', () => {
+    const t: StateTable = {
+      stateBits: 1, stateVars: ['A'], inputs: ['x'], outputs: ['y'], kind: 'moore',
+      rows: [
+        { state: 0, input: 0, next: 1, out: 0 }, { state: 0, input: 1, next: 1, out: 0 },
+        { state: 1, input: 0, next: null, out: null }, { state: 1, input: 1, next: null, out: null },
+      ],
+    }
+    expect(() => reduceStates(t)).toThrow(/unused/)
   })
 })
