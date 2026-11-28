@@ -23,9 +23,19 @@ export interface Exam {
   order: number[][]
 }
 
-/** What the player answered in one question. `choice` is an option index of `c.options` (not a shown position). */
-export interface PartAnswers { a: boolean; verdict: boolean | null; reason: number | null; choice: number | null }
-export const emptyAnswers = (): PartAnswers => ({ a: false, verdict: null, reason: null, choice: null })
+/**
+ * What the player answered in one question. `a`: part א's current answer earns its points (graded live by the
+ * puzzle, see PuzzleHost.grade; needs the optimum when partANeedsOptimal); `aAnswered`: something was entered.
+ * `choice` is an option index of `c.options` (not a shown position).
+ */
+export interface PartAnswers { a: boolean; aAnswered: boolean; verdict: boolean | null; reason: number | null; choice: number | null }
+export const emptyAnswers = (): PartAnswers => ({ a: false, aAnswered: false, verdict: null, reason: null, choice: null })
+
+/** Whether part א needs the optimum (Review I2): `aNeedsOptimal`, by default true for kmap and fsm-equations. */
+export const partANeedsOptimal = (q: ExamQuestion): boolean => q.aNeedsOptimal ?? (q.a.type === 'kmap' || q.a.type === 'fsm-equations')
+
+/** Part א's points flag from the puzzle's live grade. */
+export const partAEarned = (q: ExamQuestion, ok: boolean, optimal: boolean): boolean => (partANeedsOptimal(q) ? ok && optimal : ok)
 
 function shuffle<T>(a: T[], rng: () => number): T[] {
   const out = [...a]

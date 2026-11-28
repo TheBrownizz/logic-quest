@@ -3,7 +3,7 @@ import type { LabPuzzle } from '../../content/types'
 import type { RoomResult } from '../../game/progress'
 import type { Bit } from '../../logic/boolean'
 import { BitCell } from './BitCell'
-import { HostHints, RestartButton, SolvedVerdict, WRONG_TEXT, canReveal, revealNote, type PuzzleHost } from './roomParts'
+import { ExamSaveNote, HostHints, RestartButton, SolvedVerdict, WRONG_TEXT, canReveal, revealNote, useExamGrade, type PuzzleHost } from './roomParts'
 import { checkWave, waveAnswer } from './seqLogic'
 import { WAVE_COL, WaveLine } from './WavePlot'
 
@@ -25,6 +25,8 @@ export function WaveformPuzzle({ host, puzzle }: { host: PuzzleHost; puzzle: Pz 
   const [bad, setBad] = useState<number[] | null>(null)
   const [wrong, setWrong] = useState(0)
   const [done, setDone] = useState<{ result?: RoomResult } | null>(null)
+  const exam = !!host.exam
+  useExamGrade(host, checkWave(puzzle, q).ok, true, q.some(v => v !== null))
   const set = (i: number, v: Bit | null) => { setQ(a => a.map((x, j) => (j === i ? v : x))); setBad(null) }
   const check = () => {
     const r = checkWave(puzzle, q)
@@ -41,7 +43,7 @@ export function WaveformPuzzle({ host, puzzle }: { host: PuzzleHost; puzzle: Pz 
         רכיב: <strong>{WAVE_KIND_TEXT[puzzle.kind]}</strong> · ערך התחלתי <span className="mono" dir="ltr">Q = {puzzle.q0}</span> (לפני העמודה הראשונה).
         <span className="muted"> לחצו על תאי Q או הקלידו 0 ו-1.</span>
       </p>
-      <div className="wave-scroll">
+      <div className="wave-scroll" dir="ltr">
         <div className="wave" dir="ltr" data-testid="waveform" style={{ ['--wcol' as string]: `${WAVE_COL}px` }}>
           {signals.map(([name, bits]) => (
             <div key={name} className="wave-row">
@@ -67,12 +69,15 @@ export function WaveformPuzzle({ host, puzzle }: { host: PuzzleHost; puzzle: Pz 
           </div>
         </div>
       </div>
-      <div className="lab-actions">
-        <button type="button" className="btn primary" onClick={check} disabled={!!done}>בדוק</button>
-        <RestartButton onRestart={onRestart} />
-      </div>
+      {!exam && (
+        <div className="lab-actions">
+          <button type="button" className="btn primary" onClick={check} disabled={!!done}>בדוק</button>
+          <RestartButton onRestart={onRestart} />
+        </div>
+      )}
       <div className="lab-panels">
         <div className="panel-col">
+          {exam && <ExamSaveNote />}
           {done && <SolvedVerdict result={done.result} />}
           {!done && bad && bad.length > 0 && (
             <div className="verdict bad" role="alert" key={wrong}>

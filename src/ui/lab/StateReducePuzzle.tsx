@@ -3,7 +3,7 @@ import type { LabPuzzle } from '../../content/types'
 import type { RoomResult } from '../../game/progress'
 import { reduceStates } from '../../logic/fsm'
 import { MachineGiven } from './MachineGiven'
-import { HostHints, RestartButton, SolvedVerdict, canReveal, revealNote, type PuzzleHost } from './roomParts'
+import { ExamSaveNote, HostHints, RestartButton, SolvedVerdict, canReveal, revealNote, useExamGrade, type PuzzleHost } from './roomParts'
 import { checkPartition, stateName, tableOf, usedStates } from './seqLogic'
 
 type Pz = Extract<LabPuzzle, { type: 'state-reduce' }>
@@ -18,6 +18,8 @@ export function StateReducePuzzle({ host, puzzle }: { host: PuzzleHost; puzzle: 
   const [res, setRes] = useState<ReturnType<typeof checkPartition> | null>(null)
   const [wrong, setWrong] = useState(0)
   const [done, setDone] = useState<{ result?: RoomResult } | null>(null)
+  const exam = !!host.exam
+  useExamGrade(host, checkPartition(table, groups).ok, true, states.some((s, i) => groups[s] !== i))
   const move = (s: number, g: number) => { setGroups(gs => ({ ...gs, [s]: g })); setRes(null) }
   const check = () => {
     const r = checkPartition(table, groups)
@@ -57,12 +59,15 @@ export function StateReducePuzzle({ host, puzzle }: { host: PuzzleHost; puzzle: 
           </span>
         ))}
       </p>
-      <div className="lab-actions">
-        <button type="button" className="btn primary" onClick={check} disabled={!!done}>בדוק</button>
-        <RestartButton onRestart={onRestart} />
-      </div>
+      {!exam && (
+        <div className="lab-actions">
+          <button type="button" className="btn primary" onClick={check} disabled={!!done}>בדוק</button>
+          <RestartButton onRestart={onRestart} />
+        </div>
+      )}
       <div className="lab-panels">
         <div className="panel-col">
+          {exam && <ExamSaveNote />}
           {done && <SolvedVerdict result={done.result}><p>נשארו <span className="mono">{used.length}</span> מצבים.</p></SolvedVerdict>}
           {!done && res && !res.ok && (
             <div className="verdict bad" role="alert" key={wrong}>

@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ExamQuestion, World } from '../../content/types'
 import { findLesson } from '../../content/lessons/catalog'
 import {
-  bossLocked, buildExam, emptyAnswers, READY_SCORE, recordExam, scoreExam, type Exam, type ExamMode, type ExamScore, type PartAnswers,
+  bossLocked, buildExam, emptyAnswers, partAEarned, partANeedsOptimal, READY_SCORE, recordExam, scoreExam, type Exam, type ExamMode, type ExamScore, type PartAnswers,
 } from '../../game/exam'
 import { PuzzleView } from '../lab/PuzzleView'
+import { Schematic } from '../schematic/Schematic'
 import { findRoom } from '../lab/labLogic'
 import type { PuzzleHost } from '../lab/roomParts'
 import { moreRooms } from '../LockNote'
@@ -53,6 +54,9 @@ export function ExamScreen({ mode }: { mode: ExamMode }) {
           {mode === 'full' ? 'ארבע שאלות, אחת מכל נושא' : 'שתי שאלות: מערכות עקיבה ועוד נושא אחד'}, ו-<span className="mono">{minutes}</span> דקות.
           כשהזמן נגמר המבחן מוגש עם מה שעניתם עד אז. בסעיף א׳ אין רמזים ואין &quot;הצג תשובה&quot;.
         </p>
+        <p className="boss-lead" data-testid="exam-change-note">
+          אין בדיקה באמצע: כל התשובות נשמרות אוטומטית, ואפשר לשנות אותן עד ההגשה. הציון והפירוט מופיעים רק אחרי ההגשה.
+        </p>
         <button type="button" className="btn primary" data-testid="exam-start" onClick={() => {
           const seed = Date.now()
           const exam = buildExam(world.boss!.bank, mode, seed)
@@ -94,7 +98,21 @@ function ExamRun({ world, exam, deadline, onEnd }: { world: World; exam: Exam; d
   useEffect(() => { if (left <= 0) end(true) }, [left, end])
 
   const set = (i: number, p: Partial<PartAnswers>) => setAnswers(a => a.map((x, j) => (j === i ? { ...x, ...p } : x)))
-  const done = (a: PartAnswers) => [a.a, a.verdict !== null && a.reason !== null, a.choice !== null].filter(Boolean).length
+  /** Parts answered (not graded): א with anything entered, ב with a verdict and a reason, ג with a choice. */
+  const done = (a: PartAnswers) => [a.aAnswered, a.verdict !== null && a.reason !== null, a.choice !== null].filter(Boolean).length
+
+  // M7: a link out of the exam asks first (the attempt is not saved)
+  const [leaveTo, setLeaveTo] = useState<string | null>(null)
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      const a = (e.target as HTMLElement | null)?.closest?.('a[href^="#"]') as HTMLAnchorElement | null
+      if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return
+      e.preventDefault()
+      setLeaveTo(a.getAttribute('href'))
+    }
+    document.addEventListener('click', onClick, true)
+    return () => document.removeEventListener('click', onClick, true)
+  }, [])
 
   return (
     <section className="exam running">
@@ -115,6 +133,18 @@ function ExamRun({ world, exam, deadline, onEnd }: { world: World; exam: Exam; d
             </span>
           : <button type="button" className="btn" data-testid="exam-submit" onClick={() => setConfirm(true)}>הגשה</button>}
       </div>
+      {leaveTo !== null && (
+        <div className="overlay" role="presentation">
+          <div className="panel" role="alertdialog" aria-modal="true" aria-labelledby="leave-h" data-testid="exam-leave">
+            <h2 id="leave-h">לצאת מהמבחן?</h2>
+            <p>הניסיון לא יישמר והתשובות יימחקו.</p>
+            <div className="row">
+              <button type="button" className="btn primary" autoFocus onClick={() => setLeaveTo(null)}>להישאר במבחן</button>
+              <button type="button" className="btn danger" data-testid="exam-leave-confirm" onClick={() => { const to = leaveTo; setLeaveTo(null); window.location.hash = to }}>לצאת בלי לשמור</button>
+            </div>
+          </div>
+        </div>
+      )}
       {exam.questions.map((q, i) => (
         <div key={q.id} hidden={cur !== i} role="tabpanel" data-testid={`exam-q-${i}`}>
           <QuestionView world={world} q={q} n={i + 1} order={exam.order[i]} ans={answers[i]} set={p => set(i, p)} />
@@ -132,17 +162,19 @@ function QuestionView({ world, q, n, order, ans, set }: { world: World; q: ExamQ
   const [attempt, setAttempt] = useState(0)
   const host = useMemo<PuzzleHost>(() => ({
     hints: [], helped: false, markHelped: () => {}, stars: false, exam: true,
-    solve: () => { set({ a: true }); return undefined },
+    solve: () => undefined,
+    grade: (ok, more) => set({ a: partAEarned(q, ok, more.optimal), aAnswered: more.answered }),
     onRestart: () => setAttempt(a => a + 1),
-  }), [set])
+  }), [set, q])
   return (
     <article className="exam-q" data-qid={q.id}>
       <h2 className="exam-q-title">שאלה {n} <span className="muted">· {TOPIC_NAMES[q.topic]}</span></h2>
       <section className="exam-part" aria-labelledby={`${q.id}-a`}>
-        <h3 id={`${q.id}-a`}>א׳ <small className="muted">(10%)</small> {ans.a && <span className="ok" data-testid="part-a-done">✓ נפתר</span>}</h3>
+        <h3 id={`${q.id}-a`}>א׳ <small className="muted">(10%)</small></h3>
         <Prose as="p" className="exam-prompt" text={q.prompt} />
+        {partANeedsOptimal(q) && <p className="muted exam-optimal-note">בסעיף הזה הניקוד ניתן רק על פתרון מינימלי.</p>}
         <div className={`lab exam-lab try-${q.a.type}`}>
-          {ans.a ? <p className="goal-line ok">הסעיף נפתר ונשמר.</p> : <PuzzleView key={`${q.id}#${attempt}`} host={host} puzzle={q.a} world={world} />}
+          <PuzzleView key={`${q.id}#${attempt}`} host={host} puzzle={q.a} world={world} />
         </div>
       </section>
       <section className="exam-part" aria-labelledby={`${q.id}-b`}>
@@ -169,6 +201,7 @@ function QuestionView({ world, q, n, order, ans, set }: { world: World; q: ExamQ
       </section>
       <section className="exam-part" aria-labelledby={`${q.id}-c`}>
         <h3 id={`${q.id}-c`}>ג׳ <small className="muted">(5%)</small></h3>
+        {q.c.figure && <Schematic netlist={q.c.figure} label="שרטוט לשאלה" />}
         <fieldset className="choice" data-testid="exam-mcq">
           <legend><Prose text={q.c.text} /></legend>
           {order.map((oi, k) => (
@@ -221,7 +254,7 @@ function Results({ world, exam, answers, score, timedOut, onAgain }: { world: Wo
             <li key={q.id} data-testid={`review-${i}`}>
               <b>{TOPIC_NAMES[q.topic]}</b>
               <ul>
-                {s.a === 0 && <li>סעיף א׳ לא נפתר.</li>}
+                {s.a === 0 && <li data-testid={`review-a-${i}`}>{!a.aAnswered ? 'סעיף א׳ לא נענה.' : partANeedsOptimal(q) ? 'סעיף א׳: התשובה לא נכונה או לא מינימלית.' : 'סעיף א׳: התשובה לא נכונה.'}</li>}
                 {s.verdict === 0 && <li>ב׳: הטענה {q.b.isTrue ? 'נכונה' : 'לא נכונה'}{a.verdict === null ? ' (לא עניתם)' : ''}.</li>}
                 {s.verdict > 0 && s.reason === 0 && <li>ב׳: הנימוק הנכון: <Prose text={q.b.reasons[q.b.correctReason]} /></li>}
                 {s.c === 0 && <li>ג׳: התשובה הנכונה: <Prose text={q.c.options[q.c.correct]} /></li>}

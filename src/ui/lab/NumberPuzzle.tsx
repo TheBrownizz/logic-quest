@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import type { LabPuzzle } from '../../content/types'
 import type { RoomResult } from '../../game/progress'
 import { Prose } from '../Prose'
-import { HostHints, RestartButton, canReveal, SolvedVerdict, WRONG_TEXT, revealNote, type PuzzleHost } from './roomParts'
+import { ExamSaveNote, HostHints, RestartButton, canReveal, SolvedVerdict, WRONG_TEXT, revealNote, useExamGrade, type PuzzleHost } from './roomParts'
 import { checkNumber } from './labLogic'
 
 type NumberPz = Extract<LabPuzzle, { type: 'number' }>
@@ -15,9 +15,11 @@ export function NumberPuzzle({ host, puzzle }: { host: PuzzleHost; puzzle: Numbe
   const [revealed, setRevealed] = useState(false)
   const [done, setDone] = useState<{ result?: RoomResult } | null>(null)
 
+  const exam = !!host.exam
+  useExamGrade(host, answer.trim() !== '' && checkNumber(puzzle.check, answer, puzzle.answer), true, answer.trim() !== '')
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (done || answer.trim() === '') return
+    if (exam || done || answer.trim() === '') return
     if (checkNumber(puzzle.check, answer, puzzle.answer)) {
       setDone({ result: solve({ solved: true, optimal: true, noHints: !helped }) })
       setLastWrong(false)
@@ -37,12 +39,13 @@ export function NumberPuzzle({ host, puzzle }: { host: PuzzleHost; puzzle: Numbe
           <input id="num" data-testid="number-input" className="mono num-input" dir="ltr" autoComplete="off" spellCheck={false}
             value={answer} disabled={!!done} placeholder="…"
             onChange={e => { setAnswer(e.target.value); setLastWrong(false) }} />
-          <button type="submit" className="btn primary" disabled={!!done}>בדוק</button>
-          <RestartButton onRestart={onRestart} />
+          {!exam && <button type="submit" className="btn primary" disabled={!!done}>בדוק</button>}
+          {!exam && <RestartButton onRestart={onRestart} />}
         </div>
       </form>
       <div className="lab-panels">
         <div className="panel-col">
+          {exam && <ExamSaveNote />}
           {done && <SolvedVerdict result={done.result} />}
           {!done && lastWrong && <div className="verdict bad" role="alert" key={wrong}><strong>{WRONG_TEXT}</strong></div>}
           {!done && canReveal(host, wrong) && !revealed && (

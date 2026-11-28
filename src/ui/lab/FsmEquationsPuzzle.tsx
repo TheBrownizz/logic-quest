@@ -5,7 +5,7 @@ import { envOf } from '../../logic/expr'
 import { formatSOP, minimizeSOP } from '../../logic/qm'
 import { KMapPuzzle } from './KMapPuzzle'
 import { MachineGiven } from './MachineGiven'
-import { HostHints, RestartButton, SolvedVerdict, canReveal, revealNote, type PuzzleHost } from './roomParts'
+import { ExamSaveNote, HostHints, RestartButton, SolvedVerdict, canReveal, revealNote, useExamGrade, type PuzzleHost } from './roomParts'
 import { checkEquations, designFunctions, tableOf, varsOf, type DesignFn, type EquationsCheck } from './seqLogic'
 
 type Pz = Extract<LabPuzzle, { type: 'fsm-equations' }>
@@ -29,10 +29,13 @@ export function FsmEquationsPuzzle({ host, puzzle }: { host: PuzzleHost; puzzle:
   const [map, setMap] = useState<string | null>(null)
   const [mapKey, setMapKey] = useState(0)
 
+  const exam = !!host.exam
+  const live = useMemo(() => checkEquations(fns, vars, answers), [fns, vars, answers])
+  useExamGrade(host, live.ok, live.optimal, Object.values(answers).some(a => a.trim() !== ''))
   const set = (name: string, v: string) => { setAnswers(a => ({ ...a, [name]: v })); setRes(null) }
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (done) return
+    if (exam || done) return
     const r = checkEquations(fns, vars, answers)
     setRes(r)
     if (r.ok) setDone({ check: r, result: solve({ solved: true, optimal: r.optimal, noHints: !helped }) })
@@ -65,8 +68,8 @@ export function FsmEquationsPuzzle({ host, puzzle }: { host: PuzzleHost; puzzle:
               <input id={`eq-${f.name}`} data-testid={`eq-${f.name}`} dir="ltr" autoComplete="off" spellCheck={false}
                 className={`mono num-input seq-eq-input ${st?.status === 'ok' ? 'ok' : st ? 'err' : ''}`}
                 value={answers[f.name]} disabled={!!done} onChange={e => set(f.name, e.target.value)} />
-              <button type="button" className={`btn ghost${map === f.name ? ' on' : ''}`} aria-pressed={map === f.name}
-                onClick={() => { setMap(m => (m === f.name ? null : f.name)); setMapKey(k => k + 1) }}>מפת קרנו</button>
+              {!exam && <button type="button" className={`btn ghost${map === f.name ? ' on' : ''}`} aria-pressed={map === f.name}
+                onClick={() => { setMap(m => (m === f.name ? null : f.name)); setMapKey(k => k + 1) }}>מפת קרנו</button>}
               {st && st.status !== 'ok' && (
                 <span className="seq-eq-msg err" data-testid={`eq-msg-${f.name}`}>
                   {st.status === 'empty' ? 'חסר ביטוי' : st.status === 'parse' ? 'הביטוי לא מובן' : <>שגוי בשורה <span className="mono" dir="ltr">{rowText(st.row)}</span></>}
@@ -76,12 +79,14 @@ export function FsmEquationsPuzzle({ host, puzzle }: { host: PuzzleHost; puzzle:
             </div>
           )
         })}
-        <div className="row">
-          <button type="submit" className="btn primary" disabled={!!done}>בדוק</button>
-          <RestartButton onRestart={onRestart} />
-        </div>
+        {!exam && (
+          <div className="row">
+            <button type="submit" className="btn primary" disabled={!!done}>בדוק</button>
+            <RestartButton onRestart={onRestart} />
+          </div>
+        )}
       </form>
-      {shown && !done && (
+      {shown && !done && !exam && (
         <div className="seq-kmap" data-testid="seq-kmap">
           <p className="muted">מפת קרנו של <span className="mono">{shown.name}</span>. כשהכיסוי נכון, הביטוי נכתב בשדה.</p>
           <KMapPuzzle key={`${shown.name}#${mapKey}`} host={kmapHost} names={vars}
@@ -91,10 +96,12 @@ export function FsmEquationsPuzzle({ host, puzzle }: { host: PuzzleHost; puzzle:
       )}
       <div className="lab-panels">
         <div className="panel-col">
+          {exam && <ExamSaveNote />}
           {done && (
             <SolvedVerdict result={done.result}>
               <p className="mono-num">{done.check.literals} ליטרלים · מינימום {done.check.minLiterals}</p>
-              {!done.check.optimal && <p>אפשר עם פחות ליטרלים: נצלו את ה-Don't Care וקבוצות גדולות יותר{host.stars ? ', כדי לקבל כוכב אופטימום' : ''}.</p>}
+              {!done.check.sop && <p>כוכב האופטימום ניתן רק על סכום מכפלות (SOP), בלי XOR ובלי סוגריים בתוך מכפלה.</p>}
+              {done.check.sop && !done.check.optimal && <p>אפשר עם פחות ליטרלים: נצלו את ה-Don't Care וקבוצות גדולות יותר{host.stars ? ', כדי לקבל כוכב אופטימום' : ''}.</p>}
             </SolvedVerdict>
           )}
           {!done && res && !res.ok && <div className="verdict bad" role="alert" key={wrong}><strong>יש משוואות שגויות. הן מסומנות למעלה.</strong></div>}

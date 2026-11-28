@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import type { LabPuzzle } from '../../content/types'
 import type { RoomResult } from '../../game/progress'
-import { HostHints, RestartButton, canReveal, SolvedVerdict, WRONG_TEXT, revealNote, type PuzzleHost } from './roomParts'
+import { ExamSaveNote, HostHints, RestartButton, canReveal, SolvedVerdict, WRONG_TEXT, revealNote, useExamGrade, type PuzzleHost } from './roomParts'
 import { checkCode } from './labLogic'
 import { ProseLines } from '../Prose'
 
@@ -15,9 +15,11 @@ export function CodePuzzle({ host, puzzle }: { host: PuzzleHost; puzzle: CodePz 
   const [revealed, setRevealed] = useState(false)
   const [done, setDone] = useState<{ result?: RoomResult } | null>(null)
 
+  const exam = !!host.exam
+  useExamGrade(host, checkCode(puzzle.encode, puzzle.inputs, given).every(Boolean), true, given.some(g => g.trim() !== ''))
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (done) return
+    if (exam || done) return
     const ok = checkCode(puzzle.encode, puzzle.inputs, given)
     setMarks(ok)
     if (ok.every(Boolean)) setDone({ result: solve({ solved: true, optimal: true, noHints: !helped }) })
@@ -42,19 +44,20 @@ export function CodePuzzle({ host, puzzle }: { host: PuzzleHost; puzzle: CodePz 
               <label htmlFor={`code-${i}`} className="mono code-in" dir="ltr">{inp}</label>
               <span className="muted" aria-hidden>←</span>
               <input id={`code-${i}`} data-testid={`code-input-${i}`} dir="ltr" autoComplete="off" spellCheck={false}
-                className={`mono num-input ${mark === true ? 'ok' : mark === false ? 'err' : ''}`}
+                className={`mono num-input ${exam ? '' : mark === true ? 'ok' : mark === false ? 'err' : ''}`}
                 value={given[i]} disabled={!!done} onChange={e => set(i, e.target.value)} />
               {revealed && !done && <span className="mono code-ans" data-testid={`revealed-${i}`}>{puzzle.encode(inp)}</span>}
             </div>
           )
         })}
         <div className="row">
-          <button type="submit" className="btn primary" disabled={!!done}>בדוק</button>
-          <RestartButton onRestart={onRestart} />
+          {!exam && <button type="submit" className="btn primary" disabled={!!done}>בדוק</button>}
+          {!exam && <RestartButton onRestart={onRestart} />}
         </div>
       </form>
       <div className="lab-panels">
         <div className="panel-col">
+          {exam && <ExamSaveNote />}
           {done && <SolvedVerdict result={done.result} />}
           {!done && marks && <div className="verdict bad" role="alert" key={wrong}><strong>{WRONG_TEXT}</strong></div>}
           {!done && canReveal(host, wrong) && !revealed && (

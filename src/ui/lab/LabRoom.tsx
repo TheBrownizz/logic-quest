@@ -12,7 +12,7 @@ import { Prose } from '../Prose'
 import { Stars } from '../Stars'
 import { CircuitEditor } from './CircuitEditor'
 import { PuzzleView } from './PuzzleView'
-import { HostHints, useRoomHost, type PuzzleHost } from './roomParts'
+import { ExamSaveNote, HostHints, useExamGrade, useRoomHost, type PuzzleHost } from './roomParts'
 import {
   alignTable, autoLayout, checkCircuit, errorText, findRoom, initialCircuit,
   needsLayout, refersToChip, restartRoom, storeChip, usableDraft, type CheckResult, type ChipStore, type Chips as ChipsMap, type CircuitPuzzle,
@@ -129,8 +129,11 @@ export function CircuitPuzzleView({ host, puzzle, room }: { host: PuzzleHost; pu
     setVerdict(v)
   }
 
+  const exam = !!host.exam
+  const live = useMemo(() => checkCircuit(circuit, puzzle, chips), [circuit, puzzle, chips])
+  useExamGrade(host, live.kind === 'ok', live.kind === 'ok' && live.optimal, circuit.wires.length > 0)
   const check = () => {
-    if (sweep !== null) return
+    if (exam || sweep !== null) return
     const res = checkCircuit(circuit, puzzle, chips)
     let table: TruthTable | undefined
     const v: Verdict = { res }
@@ -197,7 +200,7 @@ export function CircuitPuzzleView({ host, puzzle, room }: { host: PuzzleHost; pu
         errorNodeId={errorNode} celebrate={celebrate}
       />
       <div className="lab-actions">
-        <button type="button" className="btn primary" onClick={check} disabled={sweep !== null}>בדוק</button>
+        {!exam && <button type="button" className="btn primary" onClick={check} disabled={sweep !== null}>בדוק</button>}
         <button type="button" className="btn ghost" onClick={onRestart} disabled={sweep !== null} title="מתחיל את החדר מחדש">נקה</button>
         <span className={`live-status ${status ? 'muted' : 'ok'}`}>
           {sweep !== null ? 'בודק…' : status ? `חי · ${status}` : 'חי · המעגל שלם'}
@@ -206,6 +209,7 @@ export function CircuitPuzzleView({ host, puzzle, room }: { host: PuzzleHost; pu
 
       <div className="lab-panels">
         <div className="panel-col">
+          {exam && <ExamSaveNote />}
           {verdict && <VerdictView v={verdict} puzzle={puzzle} />}
           {(sweep !== null || res?.kind === 'mismatch' || res?.kind === 'ok') && (
             <TruthPanel spec={spec} actual={(sweep !== null ? pendingRef.current?.table : verdict?.table)} row={tableRow}

@@ -4,8 +4,8 @@ import type { RoomResult } from '../../game/progress'
 import type { Bit } from '../../logic/boolean'
 import { BitCell } from './BitCell'
 import { MachineGiven, StateTableView } from './MachineGiven'
-import { HostHints, RestartButton, SolvedVerdict, WRONG_TEXT, canReveal, revealNote, type PuzzleHost } from './roomParts'
-import { checkStateTable, stateName, tableOf, usedRows, type RowCells, type TableCheck } from './seqLogic'
+import { ExamSaveNote, HostHints, RestartButton, SolvedVerdict, WRONG_TEXT, canReveal, revealNote, useExamGrade, type PuzzleHost } from './roomParts'
+import { askedRows, checkStateTable, puzzleTable, stateName, type RowCells, type TableCheck } from './seqLogic'
 
 type Pz = Extract<LabPuzzle, { type: 'state-table' }>
 const bitAt = (v: number, b: number, w: number) => ((v >> (w - 1 - b)) & 1) as Bit
@@ -13,8 +13,9 @@ const bitAt = (v: number, b: number, w: number) => ((v >> (w - 1 - b)) & 1) as B
 /** Fill the next-state and/or output columns of a machine's state table. */
 export function StateTablePuzzle({ host, puzzle }: { host: PuzzleHost; puzzle: Pz }) {
   const { solve, helped, markHelped, onRestart } = host
-  const table = useMemo(() => tableOf(puzzle.machine), [puzzle.machine])
-  const rows = usedRows(table)
+  const table = useMemo(() => puzzleTable(puzzle), [puzzle])
+  const rows = askedRows(table, puzzle.rows)
+  const exam = !!host.exam
   const fill = puzzle.fill ?? 'both'
   const [cells, setCells] = useState<RowCells[]>(() => rows.map(() => ({ next: Array(table.stateBits).fill(null), out: Array(table.outputs.length).fill(null) })))
   const [res, setRes] = useState<TableCheck | null>(null)
@@ -25,8 +26,10 @@ export function StateTablePuzzle({ host, puzzle }: { host: PuzzleHost; puzzle: P
     setCells(cs => cs.map((c, i) => (i === row ? { ...c, [col]: c[col].map((x, j) => (j === b ? v : x)) } : c)))
     setRes(null)
   }
+  useExamGrade(host, checkStateTable(table, cells, fill, puzzle.rows).ok, true,
+    cells.some(c => [...c.next, ...c.out].some(v => v !== null)))
   const check = () => {
-    const r = checkStateTable(table, cells, fill)
+    const r = checkStateTable(table, cells, fill, puzzle.rows)
     setRes(r)
     if (r.ok) setDone({ result: solve({ solved: true, optimal: true, noHints: !helped }) })
     else setWrong(w => w + 1)
@@ -65,16 +68,20 @@ export function StateTablePuzzle({ host, puzzle }: { host: PuzzleHost; puzzle: P
   return (
     <div className="lab-body seq-room">
       <MachineGiven machine={puzzle.machine} table={table} show={puzzle.show} />
+      {puzzle.rows && <p className="seq-help">מלאו רק את השורות של המצבים {puzzle.rows.map(r => stateName(r)).join(', ')}.</p>}
       <p className="muted seq-help">לחצו על תא כדי לכתוב 0 או 1, או הקלידו 0 ו-1 במקלדת (המעבר לתא הבא אוטומטי).</p>
       <div data-bitgroup>
-        <StateTableView table={table} cell={cell} />
+        <StateTableView table={table} cell={cell} rows={puzzle.rows} />
       </div>
-      <div className="lab-actions">
-        <button type="button" className="btn primary" onClick={check} disabled={!!done}>בדוק</button>
-        <RestartButton onRestart={onRestart} />
-      </div>
+      {!exam && (
+        <div className="lab-actions">
+          <button type="button" className="btn primary" onClick={check} disabled={!!done}>בדוק</button>
+          <RestartButton onRestart={onRestart} />
+        </div>
+      )}
       <div className="lab-panels">
         <div className="panel-col">
+          {exam && <ExamSaveNote />}
           {done && <SolvedVerdict result={done.result} />}
           {!done && res && !res.ok && (
             <div className="verdict bad" role="alert" key={wrong}>

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Hint, Room } from '../../content/types'
 import type { RoomResult, SaveData } from '../../game/progress'
 import { stars } from '../../game/rules'
@@ -46,8 +46,16 @@ export interface PuzzleHost {
   stars: boolean
   /** Remounts the puzzle with fresh local state ("התחל מחדש"). */
   onRestart: () => void
-  /** A mock-exam part: no "show the answer", and choice puzzles take one answer only. */
+  /**
+   * A mock-exam part (Review I1): the puzzle shows no verdict, no wrong/missing marks, no "בדוק" and no help;
+   * instead, on every change it reports the current answer through `grade`.
+   */
   exam?: boolean
+  /**
+   * Exam only: the current answer's grade, reported on every change (and once at mount). `optimal` is the
+   * puzzle's optimum (k-map, fsm-equations, circuit gate count); `answered` = something was entered.
+   */
+  grade?: (ok: boolean, more: { optimal: boolean; answered: boolean }) => void
 }
 
 /** A lab room: solves and help are saved under the room's id. */
@@ -91,6 +99,22 @@ export function Hints({ hints, shown, onReveal, costsStar = true }: { hints: Hin
 export function HostHints({ host }: { host: PuzzleHost }) {
   const [shown, setShown] = useState(0)
   return <Hints hints={host.hints} shown={shown} costsStar={host.stars} onReveal={() => { setShown(s => s + 1); host.markHelped() }} />
+}
+
+/**
+ * Exam mode: reports the current answer's grade through `host.grade` whenever it changes. Call it in every
+ * puzzle with the result of its own checker on the current (unsubmitted) answer.
+ */
+export function useExamGrade(host: PuzzleHost, ok: boolean, optimal: boolean, answered: boolean): void {
+  const grade = host.exam ? host.grade : undefined
+  const ref = useRef(grade)
+  ref.current = grade
+  useEffect(() => { ref.current?.(ok, { optimal: ok && optimal, answered }) }, [ok, optimal, answered])
+}
+
+/** The line an exam part shows instead of "בדוק" and a verdict. */
+export function ExamSaveNote() {
+  return <p className="muted exam-save-note" data-testid="exam-save-note">התשובה נשמרת אוטומטית ותיבדק רק בהגשה. אפשר לשנות אותה עד אז.</p>
 }
 
 /** Whether a puzzle may offer "show the answer" after REVEAL_AFTER misses (never in an exam). */

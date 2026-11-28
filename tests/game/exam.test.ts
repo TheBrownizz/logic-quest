@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import {
-  EXAM_MINUTES, MAX_ATTEMPTS, READY_SCORE, bestExam, bossLocked, buildExam, emptyAnswers, recordExam, scoreExam, type PartAnswers,
+  EXAM_MINUTES, MAX_ATTEMPTS, partAEarned, partANeedsOptimal, READY_SCORE, bestExam, bossLocked, buildExam, emptyAnswers, recordExam, scoreExam, type PartAnswers,
 } from '../../src/game/exam'
 import { emptySave, LocalProgressStore, SAVE_KEY } from '../../src/game/progress'
 import { switchingWorld } from '../../src/content/switching/world'
 import type { ExamQuestion } from '../../src/content/types'
 
 const bank = switchingWorld.boss!.bank
-const right = (q: ExamQuestion): PartAnswers => ({ a: true, verdict: q.b.isTrue, reason: q.b.correctReason, choice: q.c.correct })
+const right = (q: ExamQuestion): PartAnswers => ({ a: true, aAnswered: true, verdict: q.b.isTrue, reason: q.b.correctReason, choice: q.c.correct })
 
 class MemStorage {
   m = new Map<string, string>()
@@ -74,6 +74,20 @@ describe('scoreExam', () => {
     expect(s.score).toBe(50)
     expect(s.perTopic[3]).toBe(25)
     expect(s.perTopic.filter(x => x === -1)).toHaveLength(2)
+  })
+})
+
+describe('Review I2: part א needs the optimum for kmap and fsm-equations', () => {
+  it('defaults by puzzle type, and aNeedsOptimal overrides', () => {
+    const kmap = bank.find(q => q.a.type === 'kmap')!
+    const num = bank.find(q => q.a.type === 'number')!
+    expect(partANeedsOptimal(kmap)).toBe(true)
+    expect(partANeedsOptimal(num)).toBe(false)
+    expect(partAEarned(kmap, true, false)).toBe(false)
+    expect(partAEarned(kmap, true, true)).toBe(true)
+    expect(partAEarned({ ...kmap, aNeedsOptimal: false }, true, false)).toBe(true)
+    expect(partAEarned({ ...num, aNeedsOptimal: true }, true, false)).toBe(false)
+    expect(partANeedsOptimal({ ...kmap, a: { type: 'fsm-equations', show: 'table', machine: { from: 'rows', stateVars: ['A'], inputs: ['X'], outputs: [], next: [[0, 1], [1, 0]], out: [[0, 0], [0, 0]] } } })).toBe(true)
   })
 })
 

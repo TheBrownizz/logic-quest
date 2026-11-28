@@ -6,7 +6,7 @@ import { arrivalTimes, criticalPath, type Node } from '../../logic/circuit'
 import { useSave } from '../save'
 import { Stars } from '../Stars'
 import { CircuitEditor } from './CircuitEditor'
-import { HostHints, RestartButton, type PuzzleHost } from './roomParts'
+import { ExamSaveNote, HostHints, RestartButton, useExamGrade, type PuzzleHost } from './roomParts'
 import { autoLayout, needsLayout } from './labLogic'
 import { referenceChips } from '../../content/chips'
 
@@ -58,7 +58,7 @@ export function DelayPuzzle({ host, puzzle, world }: { host: PuzzleHost; puzzle:
   const submit = (e: FormEvent) => {
     e.preventDefault()
     const v = Number(answer)
-    if (done || answer.trim() === '' || !Number.isFinite(v)) return
+    if (exam || done || answer.trim() === '' || !Number.isFinite(v)) return
     const correct = v === puzzle.answer
     let result: RoomResult | undefined
     if (correct) {
@@ -68,6 +68,8 @@ export function DelayPuzzle({ host, puzzle, world }: { host: PuzzleHost; puzzle:
     setDone({ correct, result })
   }
 
+  const exam = !!host.exam
+  useExamGrade(host, answer.trim() !== '' && Number.isFinite(Number(answer)) && Number(answer) === puzzle.answer, true, answer.trim() !== '')
   const retry = () => { setDone(null); setAnswer(''); markHelped() }
 
   return (
@@ -81,11 +83,12 @@ export function DelayPuzzle({ host, puzzle, world }: { host: PuzzleHost; puzzle:
             onChange={e => setAnswer(e.target.value)} disabled={!!done} />
           <span className="mono muted">ns</span>
         </span>
-        <button type="submit" className="btn primary" disabled={!!done}>בדוק</button>
-        <RestartButton onRestart={onRestart} />
+        {!exam && <button type="submit" className="btn primary" disabled={!!done}>בדוק</button>}
+        {!exam && <RestartButton onRestart={onRestart} />}
       </form>
       <div className="lab-panels">
         <div className="panel-col">
+          {exam && <ExamSaveNote />}
           {done?.correct && (
             <div className="verdict good" role="status">
               <div className="verdict-head">

@@ -5,7 +5,7 @@ import { stars } from '../../game/rules'
 import { checkCover, groupToTerm, kmapLayout, type Group } from '../../logic/kmap'
 import { formatSOP } from '../../logic/qm'
 import { Stars } from '../Stars'
-import { HostHints, RestartButton, type PuzzleHost } from './roomParts'
+import { ExamSaveNote, HostHints, RestartButton, useExamGrade, type PuzzleHost } from './roomParts'
 import { dragSelection } from './labLogic'
 
 type KMapPz = Extract<LabPuzzle, { type: 'kmap' }>
@@ -109,6 +109,8 @@ export function KMapPuzzle({ host, puzzle, names: varNames, onSolved }: { host: 
     return terms.every(t => t !== null) ? formatSOP(terms as NonNullable<(typeof terms)[number]>[], names) : cover.expression
   }, [groups, nVars, names, cover.expression])
 
+  const exam = !!host.exam
+  useExamGrade(host, cover.valid && cover.covered && !cover.coversZero, cover.isMinimal, groups.length > 0)
   const check = () => {
     let text: string | null = null
     if (!cover.valid) text = 'קבוצה לא חוקית'
@@ -212,7 +214,7 @@ export function KMapPuzzle({ host, puzzle, names: varNames, onSolved }: { host: 
       </div>
 
       <div className="lab-actions">
-        <button type="button" className="btn primary" onClick={check} disabled={locked}>בדוק</button>
+        {!exam && <button type="button" className="btn primary" onClick={check} disabled={locked}>בדוק</button>}
         <button type="button" className={`btn ghost${pick ? ' on' : ''}`} aria-pressed={pick} disabled={locked}
           onClick={() => (pick ? leavePick() : setPick(true))}>בחירת תאים</button>
         {pick && <>
@@ -225,6 +227,7 @@ export function KMapPuzzle({ host, puzzle, names: varNames, onSolved }: { host: 
 
       <div className="lab-panels">
         <div className="panel-col">
+          {exam && <ExamSaveNote />}
           {verdict?.kind === 'bad' && <div className="verdict bad" role="alert" key={verdict.text}><strong>{verdict.text}</strong></div>}
           {verdict?.kind === 'ok' && (
             <div className="verdict good" role="status">

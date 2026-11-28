@@ -1,9 +1,11 @@
 import { test, expect, type Page } from '@playwright/test'
-import { readSave, seed, unlockedSave } from './helpers'
+import { readSave, SAVE_KEY, seed, unlockedSave } from './helpers'
+import { UNLOCK_SHARE } from '../../src/game/rules'
 import { switchingWorld } from '../../src/content/switching/world'
 import { tableOf, usedRows, waveAnswer } from '../../src/ui/lab/seqLogic'
 import type { LabPuzzle } from '../../src/content/types'
 import { emptySave, type SaveData } from '../../src/game/progress'
+import { buildExam } from '../../src/game/exam'
 
 type P<T extends LabPuzzle['type']> = Extract<LabPuzzle, { type: T }>
 const room = (id: string) => switchingWorld.stages.flatMap(s => s.rooms).find(r => r.id === id)!
@@ -99,6 +101,20 @@ test.describe('sequential rooms', () => {
   })
 })
 
+/** The fewest rooms of a stage that open the next one (the 60% rule), whatever its room count. */
+const toOpen = (stageId: string) => {
+  const n = switchingWorld.stages.find(x => x.id === stageId)!.rooms.length
+  let k = 0
+  while (k / n < UNLOCK_SHARE) k++
+  return k
+}
+/** `save` with `k` rooms of `stageId` solved (taken from the world, skipping `skip`). */
+function solveRooms(save: SaveData, stageId: string, k: number, skip: string[] = []): SaveData {
+  const rooms = switchingWorld.stages.find(x => x.id === stageId)!.rooms.filter(r => !skip.includes(r.id)).slice(0, k)
+  for (const r of rooms) save.rooms[r.id] = { solved: true, optimal: false, noHints: false }
+  return save
+}
+
 test.describe('Review Focus 5: stages 6–8 and the boss lock and unlock', () => {
   test('a v1 save plus lessons opens stage 6 only; the boss is locked', async ({ page }) => {
     await seed(page, unlockedSave([], 6))
@@ -119,9 +135,9 @@ test.describe('Review Focus 5: stages 6–8 and the boss lock and unlock', () =>
     await expect(page.getByTestId('boss-node')).toHaveAttribute('data-locked', 'true')
   })
 
-  test('solving the stage-6 rooms opens stage 7, solving stage 7 opens stage 8, and the boss waits for stage 8', async ({ page }) => {
-    const s = unlockedSave([], 6)
-    for (const id of ['sw-6-r1', 'sw-6-r2']) s.rooms[id] = { solved: true, optimal: false, noHints: false }
+  test('60% of stage 6 opens stage 7; the last room needed in stage 7, solved in the UI, opens stage 8', async ({ page }) => {
+    const s = solveRooms(unlockedSave([], 6), 'sw-6-latches', toOpen('sw-6-latches'))
+    solveRooms(s, 'sw-7-fsm', toOpen('sw-7-fsm') - 1, ['sw-7-r1'])
     await seed(page, s)
     await page.goto('/#/world/switching')
     await expect(page.getByTestId('stage-sw-7-fsm')).toHaveAttribute('data-locked', 'false')
@@ -133,6 +149,19 @@ test.describe('Review Focus 5: stages 6–8 and the boss lock and unlock', () =>
     await page.goto('/#/world/switching')
     await expect(page.getByTestId('stage-sw-8-design')).toHaveAttribute('data-locked', 'false')
     await expect(page.getByTestId('boss-node')).toHaveAttribute('data-locked', 'true')
+  })
+
+  test('the boss opens at 60% of stage 8, not one room before', async ({ page }) => {
+    const s = solveRooms(solveRooms(unlockedSave([], 6), 'sw-6-latches', 99), 'sw-7-fsm', 99)
+    solveRooms(s, 'sw-8-design', toOpen('sw-8-design') - 1)
+    await seed(page, s)
+    await page.goto('/#/world/switching')
+    await expect(page.getByTestId('boss-node')).toHaveAttribute('data-locked', 'true')
+    await expect(page.getByTestId('boss-node')).toContainText('עוד חדר אחד')
+    const t = solveRooms(solveRooms(solveRooms(unlockedSave([], 6), 'sw-6-latches', 99), 'sw-7-fsm', 99), 'sw-8-design', toOpen('sw-8-design'))
+    await page.evaluate(([k, v]) => localStorage.setItem(k, v), [SAVE_KEY, JSON.stringify(t)] as const)
+    await page.reload()
+    await expect(page.getByTestId('boss-node')).toHaveAttribute('data-locked', 'false')
   })
 
   test('the map shows the best exam score and the badge at 80 or more', async ({ page }) => {
@@ -208,6 +237,77 @@ test.describe('the mock exam', () => {
     await expect(page.getByTestId('exam-breakdown').locator('tbody tr')).toHaveCount(4)
     await page.getByRole('link', { name: /חזרה לדף המבחן/ }).click()
     await expect(page.getByTestId('boss-best')).toContainText('60')
+  })
+
+  test('Review I1/I2: part א gives no verdict in the exam; the results grade it (a k-map needs the minimal cover)', async ({ page }) => {
+    // a fixed clock gives a known seed: find one whose full exam has a k-map and a number part א
+    let t = 1_800_000_000_000
+    const has = (e: ReturnType<typeof buildExam>) => e.questions.some(q => q.a.type === 'kmap') && e.questions.some(q => q.a.type === 'number')
+    while (!has(buildExam(bank, 'full', t))) t += 1000
+    const exam = buildExam(bank, 'full', t)
+    await page.clock.setFixedTime(t)
+    await seed(page, allOpen())
+    await page.goto('/#/exam/full')
+    await page.getByTestId('exam-start').click()
+    const ki = exam.questions.findIndex(q => q.a.type === 'kmap')
+    const ni = exam.questions.findIndex(q => q.a.type === 'number')
+    // number: a wrong answer, and no "בדוק", no verdict
+    await page.getByTestId(`exam-tab-${ni}`).click()
+    const np = page.getByTestId(`exam-q-${ni}`)
+    await np.getByTestId('number-input').fill('123456')
+    await expect(np.getByRole('button', { name: 'בדוק' })).toHaveCount(0)
+    await expect(np.getByRole('alert')).toHaveCount(0)
+    await expect(np.getByTestId('exam-save-note')).toBeVisible()
+    await expect(page.getByTestId(`exam-tab-${ni}`)).toContainText('1/3')
+    // k-map: a valid cover of single cells, which is not minimal
+    await page.getByTestId(`exam-tab-${ki}`).click()
+    const kp = page.getByTestId(`exam-q-${ki}`)
+    const kq = exam.questions[ki].a as P<'kmap'>
+    for (const m of kq.minterms) {
+      await kp.getByRole('button', { name: new RegExp(`^תא ${m},`) }).focus()
+      await page.keyboard.press('Enter')
+    }
+    await expect(kp.getByTestId('kmap-group')).toHaveCount(kq.minterms.length)
+    await expect(kp.getByRole('status')).toHaveCount(0)
+    await page.getByTestId('exam-submit').click()
+    await page.getByTestId('exam-submit-confirm').click()
+    const row = (i: number) => page.getByTestId('exam-breakdown').locator('tbody tr').nth(i).locator('td').first()
+    await expect(row(ni)).toHaveText('0')
+    await expect(row(ki)).toHaveText('0')
+    await expect(page.getByTestId(`review-a-${ni}`)).toHaveText('סעיף א׳: התשובה לא נכונה.')
+    await expect(page.getByTestId(`review-a-${ki}`)).toHaveText('סעיף א׳: התשובה לא נכונה או לא מינימלית.')
+  })
+
+  test('Review I1: a right part א, never confirmed on screen, earns its 10 points at submit', async ({ page }) => {
+    let t = 1_800_000_000_000
+    while (!buildExam(bank, 'full', t).questions.some(q => q.a.type === 'number')) t += 1000
+    const exam = buildExam(bank, 'full', t)
+    await page.clock.setFixedTime(t)
+    await seed(page, allOpen())
+    await page.goto('/#/exam/full')
+    await page.getByTestId('exam-start').click()
+    const ni = exam.questions.findIndex(q => q.a.type === 'number')
+    await page.getByTestId(`exam-tab-${ni}`).click()
+    const np = page.getByTestId(`exam-q-${ni}`)
+    await np.getByTestId('number-input').fill((exam.questions[ni].a as P<'number'>).answer)
+    await expect(np.getByRole('status')).toHaveCount(0)
+    await expect(np.getByText('הסעיף נפתר ונשמר')).toHaveCount(0)
+    await page.getByTestId('exam-submit').click()
+    await page.getByTestId('exam-submit-confirm').click()
+    await expect(page.getByTestId('exam-breakdown').locator('tbody tr').nth(ni).locator('td').first()).toHaveText('10')
+  })
+
+  test('M7: a link out of a running exam asks first', async ({ page }) => {
+    await seed(page, allOpen())
+    await page.goto('/#/exam/short')
+    await page.getByTestId('exam-start').click()
+    await page.getByRole('link', { name: 'אוסף' }).click()
+    await expect(page.getByTestId('exam-leave')).toBeVisible()
+    await page.getByRole('button', { name: 'להישאר במבחן' }).click()
+    await expect(page.getByTestId('exam-timer')).toBeVisible()
+    await page.getByRole('link', { name: 'אוסף' }).click()
+    await page.getByTestId('exam-leave-confirm').click()
+    await expect(page).toHaveURL(/#\/collection$/)
   })
 
   test('the exam is locked until stage 8 is 60% solved', async ({ page }) => {
