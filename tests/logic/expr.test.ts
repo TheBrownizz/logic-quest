@@ -27,6 +27,13 @@ describe('parseExpr', () => {
   it('drops a leading "name =" and ignores case when unambiguous', () => {
     expect(mintermsOf(ok("DA = a'x", ['A', 'X']), ['A', 'X'])).toEqual([1])
   })
+  it('sop: sums of products only', () => {
+    expect(ok("A'X + AB'", ['A', 'B', 'X']).sop).toBe(true)
+    expect(ok('(AB) + (X)', ['A', 'B', 'X']).sop).toBe(true)
+    expect(ok('A ⊕ B', ['A', 'B']).sop).toBe(false)
+    expect(ok('A(B + X)', ['A', 'B', 'X']).sop).toBe(false)
+    expect(ok("(AB)'", ['A', 'B']).sop).toBe(false)
+  })
   it('reports errors with a position', () => {
     for (const t of ['', 'A +', 'A + Z', '(A', 'A)']) {
       const r = parseExpr(t, ['A', 'B'])

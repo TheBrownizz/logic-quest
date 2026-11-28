@@ -19,12 +19,14 @@ export function EquationsView({ machine }: { machine: Extract<MachineSpec, { fro
  * A state table in the course layout: one row per used state and input (state MSB … input LSB), columns
  * present state, input, next state, output. `cell` replaces the next/output cells (the state-table room).
  */
-export function StateTableView({ table, cell, caption }: {
+export function StateTableView({ table, cell, caption, rows: only }: {
   table: StateTable
   caption?: string
+  /** Show only these present states (state-table `rows`). */
+  rows?: number[]
   cell?: (row: number, col: 'next' | 'out') => ReactNode
 }) {
-  const rows = usedRows(table)
+  const rows = usedRows(table).filter(r => !only || only.includes(r.state))
   const sv = table.stateVars.join('')
   return (
     <div className="seq-table-wrap">

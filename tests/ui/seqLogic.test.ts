@@ -71,6 +71,14 @@ describe('fsm-equations (Review Focus 2)', () => {
     expect(r.optimal).toBe(false)
     expect(r.literals).toBe(14)
   })
+  it('M1: an equivalent non-SOP answer (XOR, factored) is correct but never optimal', () => {
+    // DB = A'B'X + BX' = A'(B ⊕ X) on the care set; factored forms are accepted, but not starred
+    const r = checkEquations(fns, varsOf(t), { DA: "AX' + BX", DB: "A'(B ⊕ X)", Z: 'A' })
+    expect(r.ok).toBe(true)
+    expect(r.sop).toBe(false)
+    expect(r.optimal).toBe(false)
+    expect(checkEquations(fns, varsOf(t), { DA: "(AX') + (BX)", DB: "A'B'X + BX'", Z: 'A' }).optimal).toBe(true)
+  })
   it('a wrong or unreadable equation is reported per function, with the first wrong row', () => {
     const r = checkEquations(fns, varsOf(t), { DA: "AX'", DB: 'B +', Z: '' })
     expect(r.ok).toBe(false)

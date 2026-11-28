@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { validateRoom, validateWorld } from '../../src/content/validate'
 import type { Boss, Card, ExamQuestion, LabPuzzle, MachineSpec, Room, World } from '../../src/content/types'
 import type { Bit } from '../../src/logic/boolean'
+import { askedRows, puzzleTable } from '../../src/ui/lab/seqLogic'
 
 const room = (puzzle: LabPuzzle, id = 'r'): Room => ({ id, title: 't', intro: 'i', hints: [], puzzle })
 const errsOf = (p: LabPuzzle) => { const e: string[] = []; validateRoom(room(p), {}, e); return e }
@@ -17,6 +18,32 @@ describe('validateRoom: sequential kinds', () => {
     // Review Focus 1: a machine driven by S and R would list the forbidden S=R=1 input
     const sr: MachineSpec = { from: 'equations', stateVars: ['Q'], inputs: ['S', 'R'], next: { Q: "S + R'Q" }, out: {} }
     expect(errsOf({ type: 'state-table', machine: sr, show: 'equations' }).join()).toMatch(/forbidden/)
+  })
+  it('Review I3: the moed-A Q4א style (3 state variables, 2 inputs, equations, rows 000 and 110 only) validates and matches the handwritten solution', () => {
+    const moedA: MachineSpec = {
+      from: 'equations', stateVars: ['y1', 'y2', 'y3'], inputs: ['x1', 'x2'],
+      next: { y1: "y1x1x2 + y2y3'", y2: "y1y2y3'x1", y3: "y1'x1x2y3" },
+      out: { z: "y1y2x1x2 + y2y3'x1x2" },
+    }
+    const p: LabPuzzle = { type: 'state-table', machine: moedA, show: 'equations', rows: [0b000, 0b110] }
+    expect(errsOf(p)).toEqual([])
+    const asked = askedRows(puzzleTable(p), p.rows).map(r => [r.state, r.input, r.next, r.out])
+    expect(asked).toEqual([
+      [0b000, 0b00, 0b000, 0], [0b000, 0b01, 0b000, 0], [0b000, 0b10, 0b000, 0], [0b000, 0b11, 0b000, 0],
+      [0b110, 0b00, 0b100, 0], [0b110, 0b01, 0b100, 0], [0b110, 0b10, 0b110, 0], [0b110, 0b11, 0b110, 1],
+    ])
+    // asking every row is 32 rows: over the cap
+    expect(errsOf({ ...p, rows: undefined } as LabPuzzle).join()).toMatch(/32 rows/)
+    expect(errsOf({ ...p, rows: [8] } as LabPuzzle).join()).toMatch(/not used/)
+  })
+  it('Review I3: with rows, a rows machine only needs the asked states (unasked next states may be undefined)', () => {
+    const partial: MachineSpec = { from: 'rows', stateVars: ['A', 'B'], inputs: ['X'], outputs: ['Y'], used: [0], next: [[3, 2]], out: [[0, 1]] }
+    expect(errsOf({ type: 'state-table', machine: partial, show: 'none' }).join()).toMatch(/machine/)
+    expect(errsOf({ type: 'state-table', machine: partial, show: 'none', rows: [0] })).toEqual([])
+  })
+  it('M5: inputs s and r (any case) are rejected', () => {
+    const sr: MachineSpec = { from: 'rows', stateVars: ['Q'], inputs: ['s', 'R'], outputs: [], next: [[0, 0, 1, 1], [1, 0, 1, 1]], out: [[0, 0, 0, 0], [0, 0, 0, 0]] }
+    expect(errsOf({ type: 'state-table', machine: sr, show: 'none' }).join()).toMatch(/forbidden/)
   })
   it('fsm-equations: 2–4 variables', () => {
     expect(errsOf({ type: 'fsm-equations', machine: rows, show: 'table' })).toEqual([])
@@ -63,7 +90,9 @@ describe('validateWorld: boss', () => {
       q('q3', { a: { type: 'number', prompt: 'n', answer: '2', check: 'exact', compute: () => '3' } }),
       q('q3'),
       q('q4', { review: {} }),
+      q('q5', { c: { ...(mcq('q5-c', 'boss') as ExamQuestion['c']), figure: { parts: [], wires: [{ from: 'a', to: 'b' }] } } }),
     ] }))
+    expect(errs.some(e => e.startsWith('q5') && /figure/.test(e))).toBe(true)
     expect(errs.some(e => e.startsWith('q1-b') && /stage/.test(e))).toBe(true)
     expect(errs.some(e => e.startsWith('q2') && /nope/.test(e))).toBe(true)
     expect(errs.some(e => e.startsWith('q3') && /compute/.test(e))).toBe(true)

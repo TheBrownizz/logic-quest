@@ -29,6 +29,12 @@ export interface ParsedExpr {
   literals: number
   /** The variables that occur, in the order of `vars`. */
   uses: string[]
+  /**
+   * Written as a sum of products: an OR of AND-terms whose factors are variables, complemented variables or
+   * constants (no ⊕, no complemented or parenthesised sums inside a product). Parentheses that only group a
+   * term are fine.
+   */
+  sop: boolean
 }
 export type ParseResult = ParsedExpr | { ok: false; error: string; at: number }
 
@@ -130,7 +136,10 @@ export function parseExpr(text: string, vars: readonly string[]): ParseResult {
       case 'xor': return (ev(n.a, env) ^ ev(n.b, env)) as Bit
     }
   }
-  return { ok: true, eval: env => ev(ast, env), literals, uses: vars.filter(v => used.has(v)) }
+  const isLit = (n: Ast): boolean => n.k === 'var' || n.k === 'const' || (n.k === 'not' && (n.a.k === 'var' || n.a.k === 'const'))
+  const isTerm = (n: Ast): boolean => isLit(n) || (n.k === 'and' && isTerm(n.a) && isTerm(n.b))
+  const isSop = (n: Ast): boolean => isTerm(n) || (n.k === 'or' && isSop(n.a) && isSop(n.b))
+  return { ok: true, eval: env => ev(ast, env), literals, uses: vars.filter(v => used.has(v)), sop: isSop(ast) }
 }
 
 /** The assignment of row `index` over `vars` (vars[0] is the MSB). */

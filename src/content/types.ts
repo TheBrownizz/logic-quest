@@ -29,8 +29,10 @@ export type LabPuzzle =
    * Fill the state table (next state and/or output of every used state and input) of `machine`, shown as its
    * equations (machine.from must be 'equations'), as a state diagram, or not at all ('none': the room intro
    * describes it in words). Checked cell by cell against stateTable.
+   * `rows`: only these present states are asked (exam style: "write the rows of 000 and 110"); then only they
+   * must be defined (see puzzleTable), and the 16-row cap counts the asked rows.
    */
-  | { type: 'state-table'; machine: MachineSpec; show: 'equations' | 'diagram' | 'none'; fill?: 'next' | 'out' | 'both' }
+  | { type: 'state-table'; machine: MachineSpec; show: 'equations' | 'diagram' | 'none'; fill?: 'next' | 'out' | 'both'; rows?: number[] }
   /**
    * Write the flip-flop input equations (D by default; T or J/K) and the output equations of `machine`, whose
    * state encoding is given, shown as a state table or a diagram. Each equation is checked for equivalence with
@@ -80,7 +82,13 @@ export interface ExamQuestion {
   prompt: string
   a: LabPuzzle
   b: Claim
-  c: Mcq
+  /** Part ג; `figure` draws a schematic above the options (e.g. "which element is drawn?"). */
+  c: Mcq & { figure?: Netlist }
+  /**
+   * Whether part א needs the puzzle's optimum for its 10 points (a minimal cover, minimal literals, the
+   * optimal gate count). Default: true for kmap and fsm-equations, false otherwise.
+   */
+  aNeedsOptimal?: boolean
   review: { lesson?: string; room?: string }
 }
 

@@ -35,6 +35,12 @@ export function machineOf(spec: MachineSpec): Fsm {
 
 export const tableOf = (spec: MachineSpec): StateTable => stateTable(machineOf(spec))
 
+/** A machine driven by inputs named S and R (any case) would list the forbidden S=R=1 input (Review Focus 1). */
+export const hasSRInputs = (inputs: string[]): boolean => {
+  const up = inputs.map(i => i.toUpperCase())
+  return up.includes('S') && up.includes('R')
+}
+
 /** The state names used across the game: S<code>. */
 export const stateName = (code: number): string => `S${code}`
 
@@ -49,12 +55,30 @@ const bit = (v: number, i: number, w: number) => ((v >> (w - 1 - i)) & 1) as Bit
 /* ---------- state-table ---------- */
 
 /** What the player typed for one used row: the next-state bits (MSB first) and the output bits. null = empty. */
+/**
+ * The table of a state-table puzzle. With `rows` (the present states asked), only those rows need to be
+ * defined: a rows machine's other codes are filled with zeros and `used` is dropped, so a machine whose asked
+ * states lead to unasked ones still builds.
+ */
+export function puzzleTable(p: { machine: MachineSpec; rows?: number[] }): StateTable {
+  if (!p.rows) return tableOf(p.machine)
+  const m = p.machine
+  if (m.from === 'equations') return tableOf({ ...m, used: undefined })
+  const n = 1 << m.stateVars.length, nIn = 1 << m.inputs.length
+  const pad = (a: number[][]) => Array.from({ length: n }, (_, s) => (p.rows!.includes(s) && a[s] ? a[s] : Array(nIn).fill(0)))
+  return tableOf({ ...m, used: undefined, next: pad(m.next), out: pad(m.out) })
+}
+
+/** The rows a state-table puzzle asks: every used row, or only the present states in `rows`. */
+export const askedRows = (t: StateTable, rows?: number[]): StateRow[] =>
+  usedRows(t).filter(r => !rows || rows.includes(r.state))
+
 export interface RowCells { next: Array<Bit | null>; out: Array<Bit | null> }
 export interface TableCheck { ok: boolean; wrong: Array<{ row: number; col: 'next' | 'out'; bit: number }>; missing: number }
 
-/** Compares the cells (one entry per used row) with the table; `fill` says which columns are asked. */
-export function checkStateTable(t: StateTable, cells: RowCells[], fill: 'next' | 'out' | 'both' = 'both'): TableCheck {
-  const rows = usedRows(t)
+/** Compares the cells (one entry per asked row) with the table; `fill` says which columns are asked. */
+export function checkStateTable(t: StateTable, cells: RowCells[], fill: 'next' | 'out' | 'both' = 'both', asked?: number[]): TableCheck {
+  const rows = askedRows(t, asked)
   const wrong: TableCheck['wrong'] = []
   let missing = 0
   rows.forEach((r, i) => {
@@ -101,7 +125,15 @@ export function minLiterals(fns: DesignFn[], nVars: number): number {
 }
 
 export type EqStatus = { status: 'ok' } | { status: 'empty' } | { status: 'parse'; error: string } | { status: 'wrong'; row: number }
-export interface EquationsCheck { ok: boolean; results: Record<string, EqStatus>; literals: number; minLiterals: number; optimal: boolean }
+export interface EquationsCheck {
+  ok: boolean
+  results: Record<string, EqStatus>
+  literals: number
+  minLiterals: number
+  /** Every equation is a sum of products (required for the optimal star; correctness accepts any equivalent form). */
+  sop: boolean
+  optimal: boolean
+}
 
 /**
  * Checks typed equations against the covers: each must equal 1 on its minterms and 0 on every other row that
@@ -110,12 +142,14 @@ export interface EquationsCheck { ok: boolean; results: Record<string, EqStatus>
 export function checkEquations(fns: DesignFn[], vars: string[], answers: Record<string, string>): EquationsCheck {
   const results: Record<string, EqStatus> = {}
   let literals = 0
+  let sop = true
   for (const f of fns) {
     const text = (answers[f.name] ?? '').trim()
     if (text === '') { results[f.name] = { status: 'empty' }; continue }
     const e = parseExpr(text, vars)
     if (!e.ok) { results[f.name] = { status: 'parse', error: e.error }; continue }
     literals += e.literals
+    sop &&= e.sop
     const ones = new Set(f.minterms), dc = new Set(f.dontCares)
     let row = -1
     for (let m = 0; m < 1 << vars.length && row < 0; m++) {
@@ -126,7 +160,7 @@ export function checkEquations(fns: DesignFn[], vars: string[], answers: Record<
   }
   const ok = fns.every(f => results[f.name].status === 'ok')
   const min = minLiterals(fns, vars.length)
-  return { ok, results, literals, minLiterals: min, optimal: ok && literals <= min }
+  return { ok, results, literals, minLiterals: min, sop, optimal: ok && sop && literals <= min }
 }
 
 /* ---------- waveform ---------- */

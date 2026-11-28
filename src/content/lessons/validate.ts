@@ -6,7 +6,7 @@ import { registry } from '../../ui/lessons/widgets/registry'
 import { normalizeAnswer } from './answer'
 import { validateWaveConfig } from '../../logic/waveform'
 import { isMoore } from '../../logic/fsm'
-import { tableOf } from '../../ui/lab/seqLogic'
+import { hasSRInputs, tableOf } from '../../ui/lab/seqLogic'
 import type { ClockScopeConfig } from '../../ui/lessons/widgets/clockScopeLogic'
 import type { StateWalkerConfig } from '../../ui/lessons/widgets/stateWalkerLogic'
 import { allFigures } from './catalog'
@@ -123,7 +123,7 @@ export function widgetConfigProblems(widget: WidgetName, config: unknown): strin
     const c = config as StateWalkerConfig
     try {
       const t = tableOf(c.table)
-      if (c.table.inputs.includes('S') && c.table.inputs.includes('R')) out.push('StateWalker: a machine driven by S and R would offer the forbidden S=R=1 input')
+      if (hasSRInputs(c.table.inputs)) out.push('StateWalker: a machine driven by S and R would offer the forbidden S=R=1 input')
       if (c.kind === 'moore' && !isMoore(t)) out.push('StateWalker: kind "moore" but the machine is Mealy')
     } catch (e) { out.push(`StateWalker: machine: ${msg(e)}`) }
   }

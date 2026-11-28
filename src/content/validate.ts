@@ -5,7 +5,7 @@ import { validateWaveConfig } from '../logic/waveform'
 import { reduceStates, type StateTable } from '../logic/fsm'
 import { layoutSchematic } from '../ui/schematic/geometry'
 import { layoutStateDiagram } from '../ui/schematic/stateDiagram'
-import { tableOf, usedRows, usedStates } from '../ui/lab/seqLogic'
+import { askedRows, hasSRInputs, puzzleTable, tableOf, usedStates } from '../ui/lab/seqLogic'
 import { allLessons } from './lessons/catalog'
 import type { Card, ExamQuestion, MachineSpec, Room, World } from './types'
 
@@ -85,11 +85,23 @@ export function validateRoom(room: Room, chips: Record<string, Chip>, errs: stri
       break
     }
     case 'state-table': {
-      const t = machineTable(p.machine, err)
+      if (p.rows !== undefined) {
+        const n = 1 << p.machine.stateVars.length
+        if (p.rows.length === 0) err('rows is empty (omit it to ask every row)')
+        if (new Set(p.rows).size !== p.rows.length) err('rows has duplicates')
+        const bad = p.rows.filter(r => !Number.isInteger(r) || r < 0 || r >= n || (p.machine.used && !p.machine.used.includes(r)))
+        if (bad.length) err(`rows ${bad.join(',')} are not used state codes`)
+        if (bad.length || p.rows.length === 0) break
+      }
+      const t = machineTable(p.machine, err, () => puzzleTable(p))
       if (!t) break
       if (p.show === 'equations' && p.machine.from !== 'equations') err('show "equations" needs a machine given by equations')
-      if (p.show === 'diagram') drawable(t, err)
-      if (usedRows(t).length > 16) err(`state table has ${usedRows(t).length} rows (at most 16)`)
+      if (p.show === 'diagram') {
+        if (p.rows) err('show "diagram" cannot be combined with rows (the diagram needs every state)')
+        else drawable(t, err)
+      }
+      const asked = askedRows(t, p.rows).length
+      if (asked > 16) err(`state table asks ${asked} rows (at most 16)`)
       if (p.fill === 'out' && t.outputs.length === 0) err('fill "out" but the machine has no outputs')
       break
     }
@@ -133,15 +145,15 @@ export function validateRoom(room: Room, chips: Record<string, Chip>, errs: stri
 const WAVE_INPUTS: Record<string, string[]> = { 'latch-D': ['D'], 'latch-SR': ['S', 'R'], 'ff-D': ['D'], 'ff-T': ['T'], 'ff-JK': ['J', 'K'] }
 
 /** The machine's state table, or undefined after reporting why it cannot be built. */
-function machineTable(m: MachineSpec, err: (m: string) => void): StateTable | undefined {
+function machineTable(m: MachineSpec, err: (m: string) => void, build: () => StateTable = () => tableOf(m)): StateTable | undefined {
   // Review Focus 1: a machine driven by S and R would list the forbidden S=R=1 input in its table
-  if (m.inputs.includes('S') && m.inputs.includes('R')) {
+  if (hasSRInputs(m.inputs)) {
     err('machine has inputs S and R: its table would list the forbidden S=R=1 input')
     return undefined
   }
   if (m.stateVars.length < 1 || m.stateVars.length > 3) err(`machine has ${m.stateVars.length} state variables (1–3)`)
   if (m.inputs.length > 2) err(`machine has ${m.inputs.length} inputs (at most 2)`)
-  try { return tableOf(m) } catch (e) { err(`machine: ${msg(e)}`); return undefined }
+  try { return build() } catch (e) { err(`machine: ${msg(e)}`); return undefined }
 }
 
 function drawable(t: StateTable, err: (m: string) => void): void {
@@ -158,6 +170,7 @@ function validateExamQuestion(q: ExamQuestion, w: World, bossId: string, chips: 
   if (q.c.kind !== 'mcq') err('part c must be an mcq')
   validateCard(q.b, bossId, errs)
   validateCard(q.c, bossId, errs)
+  if (q.c.figure) { try { layoutSchematic(q.c.figure) } catch (e) { err(`part c figure: ${msg(e)}`) } }
   const roomIds = new Set(w.stages.flatMap(s => s.rooms.map(r => r.id)))
   if (!q.review.lesson && !q.review.room) err('review needs a lesson or a room')
   if (q.review.room && !roomIds.has(q.review.room)) err(`review room "${q.review.room}" does not exist`)
