@@ -15,9 +15,9 @@ const STEP_MS = 800
  * starting from the right. 'group': every press forms one group of bits (or opens one digit into its bits) and
  * the matching digit appears under it. "Run all" plays the steps in order; with reduced motion it jumps to the end.
  */
-export function BaseConvert({ config, onState, completed, reducedMotion }: WidgetProps<BaseConvertConfig, BaseConvertState, BaseConvertGoal>) {
+export function BaseConvert({ config, goal, onState, completed, reducedMotion }: WidgetProps<BaseConvertConfig, BaseConvertState, BaseConvertGoal>) {
   const total = useMemo(() => totalSteps(config), [config])
-  const [state, setState] = useState<BaseConvertState>(() => (completed ? stateAt(config, total) : initial(config)))
+  const [state, setState] = useState<BaseConvertState>(() => (completed && goal !== undefined ? stateAt(config, total) : initial(config)))
   const [playing, setPlaying] = useState(false)
   useEffect(() => { onState(state) }, [state]) // eslint-disable-line react-hooks/exhaustive-deps
   const timer = useRef<ReturnType<typeof setInterval> | null>(null)

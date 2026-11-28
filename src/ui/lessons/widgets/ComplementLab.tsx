@@ -133,14 +133,16 @@ const NEXT_LABEL: Record<ComplementPhase, string> = { value: '', r1: 'הפכו �
  * subtraction the column addition runs right to left until the end carry decides the sign. Going back shows
  * a finished phase at once, and reduced motion shows every phase finished.
  */
-export function ComplementLab({ config, onState, completed, reducedMotion }: WidgetProps<ComplementLabConfig, ComplementLabState, ComplementLabGoal>) {
+export function ComplementLab({ config, goal, onState, completed, reducedMotion }: WidgetProps<ComplementLabConfig, ComplementLabState, ComplementLabGoal>) {
   const m = useMemo(() => modelOf(config), [config])
   const phases = phasesFor(config)
+  // a goal-less step opens at its starting state even when the player marks it complete
+  const showFinal = completed && goal !== undefined
   const last = phases[phases.length - 1]
-  const [furthest, setFurthest] = useState<ComplementPhase>(() => (completed ? last : initial(config).phase))
-  const [view, setView] = useState<ComplementPhase>(() => (completed ? last : 'value'))
+  const [furthest, setFurthest] = useState<ComplementPhase>(() => (showFinal ? last : initial(config).phase))
+  const [view, setView] = useState<ComplementPhase>(() => (showFinal ? last : 'value'))
   useEffect(() => { onState({ phase: furthest }) }, [furthest]) // eslint-disable-line react-hooks/exhaustive-deps
-  const seen = useRef<Set<ComplementPhase>>(new Set(completed ? phases : ['value']))
+  const seen = useRef<Set<ComplementPhase>>(new Set(showFinal ? phases : ['value']))
   const instant = reducedMotion || seen.current.has(view)
   const [reveal, setReveal] = useState(() => (instant ? m.width : 0))
   useLayoutEffect(() => {

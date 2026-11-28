@@ -76,6 +76,7 @@ export const lessons: Lesson[] = [
       },
       widgetStep({
         id: 'negate', widget: 'ComplementLab', config: { base: 2, digits: 4, value: '0110', mode: 'complement' },
+        goal: { phase: 'r' }, example: { phase: 'r' },
         prompt: `כך מקבלים מספר נגדי: מתחילים מ-${ltr('0110')} (שהוא 6), הופכים כל ביט ומוסיפים 1. הריצו את השלבים וראו שמתקבל ${ltr('1010')}, הייצוג של ${ltr('−6')}.`,
       }),
       {
@@ -277,6 +278,7 @@ export const lessons: Lesson[] = [
       },
       widgetStep({
         id: 'binary', widget: 'BaseConvert', config: { from: 10, to: 2, value: '59', mode: 'divide' },
+        goal: { finished: true }, example: { step: 6, result: '111011', finished: true },
         prompt: `השוו לבינארי רגיל: המירו את 59 בחלוקות חוזרות ב-2. מתקבל ${ltr('111011')}, ששונה לגמרי מ-${ltr('0101 1001')} של BCD. אלה שני קודים לאותו מספר.`,
       }),
       {

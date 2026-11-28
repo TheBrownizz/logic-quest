@@ -55,10 +55,13 @@ describe('stage 4 lessons: structure', () => {
     expect(stepCounts(l).check).toBeGreaterThanOrEqual(2)
     expect(l.steps[l.steps.length - 1].kind).toBe('recap')
   })
-  it('each lesson has a TruthToMap goal widget with an example, and GateToy/IdentityBench only without goals (ruling L2)', () => {
+  it('each lesson has a TruthToMap goal widget with an example, and 4.1 toy and bench need every row', () => {
     for (const l of lessons) {
       expect(l.steps.some(s => s.kind === 'widget' && s.widget === 'TruthToMap' && s.goal !== undefined && s.example !== undefined), l.id).toBe(true)
-      for (const s of l.steps) if (s.kind === 'widget' && (s.widget === 'GateToy' || s.widget === 'IdentityBench')) expect(s.goal, `${l.id}/${s.id}`).toBeUndefined()
+      for (const s of l.steps) if (s.kind === 'widget' && (s.widget === 'GateToy' || s.widget === 'IdentityBench')) {
+        expect(s.goal, `${l.id}/${s.id}`).toEqual({ kind: 'all-rows' })
+        expect(s.example, `${l.id}/${s.id}`).toBeDefined()
+      }
     }
   })
   it('no more than two explain steps in a row', () => {

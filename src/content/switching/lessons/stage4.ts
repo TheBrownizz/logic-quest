@@ -37,6 +37,7 @@ export const lessons: Lesson[] = [
       widgetStep({
         id: 'toy', widget: 'GateToy',
         config: { vars: ['A', 'B', 'C'], expr: { fn: maj, display: 'F' } },
+        goal: { kind: 'all-rows' }, example: { inputs: { A: 1, B: 1, C: 1 }, tried: [0, 1, 2, 3, 4, 5, 6, 7] },
         prompt: 'הפכו את המתגים וראו מתי הנורה נדלקת. הטבלה מתמלאת בעצמה, שורה אחרי שורה.',
       }),
       {
@@ -102,6 +103,7 @@ export const lessons: Lesson[] = [
           left: { fn: v => (ABC(v) || ABCn(v) ? 1 : 0), display: "ABC + ABC'" },
           right: { fn: AB, display: 'AB' },
         },
+        goal: { kind: 'all-rows' }, example: { inputs: { A: 1, B: 1, C: 1 }, tried: [0, 1, 2, 3, 4, 5, 6, 7] },
         prompt: 'הנוסחה הקנונית ארוכה, ואפשר לקצר אותה. נסו את כל השורות ובדקו אם שני הביטויים נשארים שווים.',
       }),
       {

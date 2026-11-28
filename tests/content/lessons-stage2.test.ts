@@ -3,6 +3,10 @@ import { describe, it, expect } from 'vitest'
 import { expectFullLesson, expectLessonsValid, goalWidgets } from './lessonTestUtils'
 import { encodeNeighbour, figures } from '../../src/content/switching/lessons/stage2'
 import { decode, encodeValue, isGoalMet, initial } from '../../src/ui/lessons/widgets/bitFieldLogic'
+import { initial as initialCL, isGoalMet as isGoalMetCL } from '../../src/ui/lessons/widgets/complementLabLogic'
+import type { ComplementLabConfig, ComplementLabGoal, ComplementLabState } from '../../src/ui/lessons/widgets/complementLabLogic'
+import { initial as initialBC, isGoalMet as isGoalMetBC } from '../../src/ui/lessons/widgets/baseConvertLogic'
+import type { BaseConvertConfig, BaseConvertGoal, BaseConvertState } from '../../src/ui/lessons/widgets/baseConvertLogic'
 import type { Step } from '../../src/content/lessons/types'
 import type { BitFieldConfig, BitFieldGoal, BitFieldState } from '../../src/ui/lessons/widgets/bitFieldLogic'
 
@@ -23,9 +27,8 @@ describe('stage 2 lessons', () => {
     for (const l of lessons) for (const s of l.steps) if (s.kind === 'explain') expect(words(s.text), `${l.id}/${s.id}`).toBeLessThanOrEqual(60)
   })
 
-  it('goals sit only on BitField (ruling L2), and each is a normal float32 reachable with the unlocked fields', () => {
-    for (const l of lessons) for (const s of goalWidgets(l) as W[]) {
-      expect(s.widget, `${l.id}/${s.id}`).toBe('BitField')
+  it('every BitField goal is a normal float32 reachable with the unlocked fields', () => {
+    for (const l of lessons) for (const s of (goalWidgets(l) as W[]).filter(w => w.widget === 'BitField')) {
       const c = s.config as BitFieldConfig, g = s.goal as BitFieldGoal
       const target = encodeValue(g.value)
       expect(target, `${l.id}/${s.id}`).not.toBeNull()
@@ -41,10 +44,21 @@ describe('stage 2 lessons', () => {
   })
 
   it('goal values decode as intended', () => {
-    const goals = lessons.flatMap(l => goalWidgets(l) as W[]).map(s => (s.goal as BitFieldGoal).value)
+    const goals = lessons.flatMap(l => goalWidgets(l) as W[]).filter(w => w.widget === 'BitField').map(s => (s.goal as BitFieldGoal).value)
     expect(goals).toEqual([-6.5, 0.25, 1.875, -6.25, 0.03125])
     expect(decode(encodeValue(-6.25)!)).toMatchObject({ sign: 1, exponent: 129, mantissaBits: '1001'.padEnd(23, '0') })
     expect(decode(encodeValue(0.03125)!).exponent).toBe(122)
+  })
+
+  it('the ComplementLab and BaseConvert steps have goals that their examples meet (so they open unfinished)', () => {
+    const find = (id: string) => lessons.flatMap(l => l.steps).find(s => s.id === id) as W
+    const neg = find('negate'), bin = find('binary')
+    expect(neg.goal).toEqual({ phase: 'r' })
+    expect(isGoalMetCL(neg.example as ComplementLabState, neg.goal as ComplementLabGoal, neg.config as ComplementLabConfig)).toBe(true)
+    expect(isGoalMetCL(initialCL(neg.config as ComplementLabConfig), neg.goal as ComplementLabGoal, neg.config as ComplementLabConfig)).toBe(false)
+    expect(bin.goal).toEqual({ finished: true })
+    expect(isGoalMetBC(bin.example as BaseConvertState, bin.goal as BaseConvertGoal, bin.config as BaseConvertConfig)).toBe(true)
+    expect(isGoalMetBC(initialBC(bin.config as BaseConvertConfig), bin.goal as BaseConvertGoal, bin.config as BaseConvertConfig)).toBe(false)
   })
 
   it('the invented neighbour code follows its definition', () => {
