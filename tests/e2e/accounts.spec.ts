@@ -181,6 +181,17 @@ test('Review Focus 2: user B never sees user A\'s data on the same browser, and 
   await expect(page.getByTestId('room-row').filter({ hasText: 'מעבר לבינארי' })).toContainText('★')
 })
 
+test('signing out in one tab signs the other tab out too', async ({ context, page }) => {
+  await page.goto('/#/')
+  await signIn(page)
+  const other = await context.newPage()
+  await other.goto('/#/')
+  await expect(other.getByLabel(/^החשבון של/)).toBeVisible()
+  await signOut(page)
+  await expect(other.getByRole('button', { name: 'התחברות עם Google' }).first()).toBeVisible()
+  await expect(other.getByLabel(/^החשבון של/)).toHaveCount(0)
+})
+
 test('a session survives a reload', async ({ page }) => {
   await page.goto('/#/')
   await signIn(page)

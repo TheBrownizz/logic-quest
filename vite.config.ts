@@ -8,6 +8,8 @@ export default defineConfig({
   define: { __E2E_FAKE__: JSON.stringify(process.env.VITE_E2E_FAKE === '1') },
   base: './',
   plugins: [react()],
+  // The sign-in redirect URLs name this port, so it must not drift.
+  server: { port: 5173, strictPort: true },
   test: {
     include: ['tests/**/*.test.ts'],
   },

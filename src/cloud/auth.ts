@@ -1,4 +1,7 @@
+/// <reference types="vite/client" />
 import type { SupabaseLike } from './types'
+
+declare const __E2E_FAKE__: boolean
 
 /** sessionStorage key holding the hash (the screen the player was on) across the round trip to Google. */
 export const RETURN_HASH_KEY = 'lq-ui:return-hash'
@@ -47,12 +50,24 @@ export function captureRedirect(): void { pendingCode = takeRedirectCode() }
 export function consumePendingCode(): string | null { const c = pendingCode; pendingCode = null; return c }
 export const hasPendingCode = (): boolean => pendingCode !== null
 
-/** True when a Supabase session is stored in this browser (so loading the library is worth it). */
-export function hasStoredSession(storage: { length: number; key(i: number): string | null } = localStorage): boolean {
-  return tryDo(() => {
-    for (let i = 0; i < storage.length; i++) if (/^sb-.+-auth-token$/.test(storage.key(i) ?? '')) return true
-    return false
-  }) ?? false
+/**
+ * The exact localStorage keys supabase-js uses for this project (`sb-<ref>-auth-token` and its PKCE verifier),
+ * derived from the project URL the same way the library does: the first label of the host name. Exact keys,
+ * not a pattern: GitHub Pages project sites share one origin, so another app's `sb-*` keys must stay untouched.
+ */
+export function sessionKeys(
+  url: string | undefined = import.meta.env.VITE_SUPABASE_URL,
+  extra: string[] = __E2E_FAKE__ ? ['sb-fake-auth-token'] : [],
+): string[] {
+  let ref: string | undefined
+  try { ref = url ? new URL(url).hostname.split('.')[0] : undefined } catch { ref = undefined }
+  const base = ref ? [`sb-${ref}-auth-token`, `sb-${ref}-auth-token-code-verifier`] : []
+  return [...base, ...extra]
+}
+
+/** True when this project's Supabase session is stored in this browser (so loading the library is worth it). */
+export function hasStoredSession(storage: { getItem(k: string): string | null } = localStorage, keys: string[] = sessionKeys()): boolean {
+  return tryDo(() => keys.some(k => storage.getItem(k) !== null)) ?? false
 }
 
 export async function exchangeCode(client: SupabaseLike, code: string): Promise<string | null> {
@@ -60,20 +75,18 @@ export async function exchangeCode(client: SupabaseLike, code: string): Promise<
   return error?.message ?? null
 }
 
-interface KeyStore { length: number; key(i: number): string | null; removeItem(k: string): void }
+/** Written on every sign-out; other open tabs see the change (a `storage` event) and drop back to guest mode. */
+export const SIGNED_OUT_KEY = 'lq-ui:signed-out'
 
 /**
  * Ends this browser's session, even when offline: asks for a local-scope sign-out (no network needed) and, if
- * the library still reports an error, removes the stored session itself. Never throws; after it, a reload
- * cannot bring the account back.
+ * the library still reports an error, removes this project's stored session keys itself. Then pings the other
+ * tabs. Never throws; after it, a reload cannot bring the account back.
  */
-export async function signOut(client: SupabaseLike, storage: KeyStore = localStorage): Promise<void> {
+export async function signOut(client: SupabaseLike, storage: StoreLike = localStorage, keys: string[] = sessionKeys()): Promise<void> {
   try { await client.auth.signOut({ scope: 'local' }) } catch { /* fall through to the hard removal */ }
-  tryDo(() => {
-    const keys: string[] = []
-    for (let i = 0; i < storage.length; i++) { const k = storage.key(i); if (k && /^sb-.+-auth-token(-code-verifier)?$/.test(k)) keys.push(k) }
-    keys.forEach(k => storage.removeItem(k))
-  })
+  tryDo(() => keys.forEach(k => storage.removeItem(k)))
+  tryDo(() => storage.setItem(SIGNED_OUT_KEY, String(Date.now())))
 }
 
 /** Rejects if `p` takes longer than `ms` (so a hung network can't keep the game on a loading screen). */
@@ -89,9 +102,9 @@ export function withTimeout<T>(p: PromiseLike<T>, ms: number): Promise<T> {
  * local save (the guest's save is untouched) and ends the session. Throws only if the server refused; once the
  * server has deleted the account, a sign-out problem is not an error.
  */
-export async function deleteAccount(client: SupabaseLike, uid: string, storage: StoreLike & KeyStore = localStorage): Promise<void> {
+export async function deleteAccount(client: SupabaseLike, uid: string, storage: StoreLike = localStorage, keys: string[] = sessionKeys()): Promise<void> {
   const { error } = await client.functions.invoke('delete-account')
   if (error) throw new Error(error.message)
   tryDo(() => { storage.removeItem(userSaveKey(uid)); storage.removeItem(`${userSaveKey(uid)}-backup`) })
-  await signOut(client, storage)
+  await signOut(client, storage, keys)
 }

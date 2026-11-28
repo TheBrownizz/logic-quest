@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { consumePendingCode, deleteAccount as deleteAccountOnServer, exchangeCode, hasPendingCode, hasStoredSession, signInWithGoogle, signOut as signOutOfBrowser, userSaveKey, withTimeout } from '../../cloud/auth'
+import { consumePendingCode, deleteAccount as deleteAccountOnServer, exchangeCode, hasPendingCode, hasStoredSession, SIGNED_OUT_KEY, signInWithGoogle, signOut as signOutOfBrowser, userSaveKey, withTimeout } from '../../cloud/auth'
 import { isCloudConfigured, loadSupabase } from '../../cloud/client'
 import { SyncEngine, type SyncStatus } from '../../cloud/sync'
 import type { SupabaseLike, SupabaseSession } from '../../cloud/types'
@@ -150,6 +150,15 @@ export function AccountProvider({ store: guest = guestStore, children }: { store
     })
     return () => { live = false; off?.() }
   }, [supported])
+
+  // Another tab signed out (possibly offline, where the library can't tell us): drop back to guest mode here too.
+  const signedIn = user !== null
+  useEffect(() => {
+    if (!signedIn) return
+    const on = (e: StorageEvent) => { if (e.key === SIGNED_OUT_KEY) window.location.reload() }
+    window.addEventListener('storage', on)
+    return () => window.removeEventListener('storage', on)
+  }, [signedIn])
 
   const signIn = useCallback(async () => {
     setError(null); setNotice(null); setBusy('signin')
