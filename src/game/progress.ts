@@ -89,7 +89,7 @@ function normalize(v: unknown): SaveData | null {
   const helped = isObj(v.helped) ? filterEntries(v.helped, (x): x is true => x === true) : {}
   const lessons = isObj(v.lessons) ? Object.fromEntries(Object.entries(filterEntries(v.lessons, validLesson)).map(([k, l]) => [k, canonLesson(l)])) : {}
   const openStages = Array.isArray(v.openStages) ? [...new Set(v.openStages.filter((x): x is string => typeof x === 'string'))] : []
-  if (!isObj(bestRun) || !Object.values(bestRun).every(n => typeof n === 'number')) return null
+  if (!isObj(bestRun) || !Object.values(bestRun).every(n => typeof n === 'number' && Number.isFinite(n))) return null
   const savedAt = typeof v.savedAt === 'number' && Number.isFinite(v.savedAt) ? v.savedAt : 0
   return { ...v, version: 1, savedAt, rooms: rooms as SaveData['rooms'], chips: filterEntries(chips, validChipEntry), drafts: filterEntries(drafts, validCircuit), knowledge: uniq(knowledge), bestRun: bestRun as SaveData['bestRun'], flagged: uniq(flagged), helped, lessons, openStages }
 }
